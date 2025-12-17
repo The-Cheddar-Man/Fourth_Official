@@ -18,8 +18,8 @@ data class Team(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(modifier: Modifier = Modifier) {
-    var team1 by remember { mutableStateOf(Team("Team 1", List(23) { "Player ${it+1}" })) }
-    var team2 by remember { mutableStateOf(Team("Team 2", List(23) { "Player ${it+1}" })) }
+    var team1 by remember { mutableStateOf(Team("Team 1", List(23){""})) }
+    var team2 by remember { mutableStateOf(Team("Team 2", List(23) {""})) }
     var editingSide by remember { mutableStateOf<Int?>(null) }
 
     if (editingSide != null) {
@@ -66,7 +66,7 @@ fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
         LazyColumn(
             modifier = Modifier.weight(1f)
         ) {
-            items(team.players.size) { i -> Text(team.players[i]) }
+            items(team.players.size) { i -> Text((i+1).toString() + ". " + team.players[i]) }
         }
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
@@ -78,10 +78,13 @@ fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
     var name by remember { mutableStateOf(team.name) }
-    var players by remember { mutableStateOf(team.players) }
+    val players = remember(team) { mutableStateListOf(*team.players.toTypedArray()) }
 
-    Column(Modifier.padding(16.dp)) {
-        Text("Edit team", style = MaterialTheme.typography.headlineSmall)
+    Column(
+        Modifier
+        .padding(16.dp)
+    ) {
+        Text("Team Name", style = MaterialTheme.typography.headlineSmall)
 
         OutlinedTextField(
             value = name,
@@ -90,10 +93,30 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
             modifier = Modifier.fillMaxWidth()
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Players", style = MaterialTheme.typography.headlineSmall)
+
+        LazyColumn(modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(
+                count = 23,
+                key = {index -> index}
+            ) {
+                i -> OutlinedTextField(
+                    value = players[i],
+                    onValueChange = { players[i] = it },
+                    label = { Text("Player ${i + 1}") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
             Button(
-                onClick = { onSave(Team(name, players)) },
+                onClick = { onSave(Team(name, players.toList())) },
                 modifier = Modifier.weight(1f)
             ) { Text("Save") }
         }
