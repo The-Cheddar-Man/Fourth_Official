@@ -1,9 +1,15 @@
 package com.example.fourthofficial.ui
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -18,14 +24,13 @@ fun MatchScreen(modifier: Modifier = Modifier,
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier
-            .fillMaxSize()
+        modifier = modifier.fillMaxSize()
     ) {
         Text(formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
         Button(onClick = { vm.toggleClock() }) {
             Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
         }
-        Row() {
+        Row {
             TeamColumn(
                 team = vm.team1,
                 modifier = Modifier.weight(1f)
@@ -42,12 +47,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
 fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .padding(5.dp))
+        modifier = modifier.padding(5.dp))
     {
         Text(team.name, style = MaterialTheme.typography.headlineMedium)
-        LazyColumn(
-        ) {
+        LazyColumn {
             items(15) { i -> Text((i+1).toString() + ". " + team.players[i]) }
         }
     }
