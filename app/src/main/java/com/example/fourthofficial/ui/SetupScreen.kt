@@ -9,6 +9,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
+import com.example.fourthofficial.model.Team
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

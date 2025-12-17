@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.fourthofficial.model.Team
 
 private enum class Screen {
     Setup, Match, Summary
@@ -12,8 +13,8 @@ private enum class Screen {
 @Composable
 fun AppRoot() {
     var screen by remember { mutableStateOf(Screen.Setup) }
-    var team1 by remember { mutableStateOf(Team("Team 1", List(23){""})) }
-    var team2 by remember { mutableStateOf(Team("Team 2", List(23) {""})) }
+    var team1 by remember { mutableStateOf(Team("Team 1", List(23) { "" })) }
+    var team2 by remember { mutableStateOf(Team("Team 2", List(23) { "" })) }
 
     Scaffold(
         bottomBar = {

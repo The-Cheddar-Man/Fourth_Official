@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui
+package com.example.fourthofficial.model
 
 data class Team(
     val name: String,
