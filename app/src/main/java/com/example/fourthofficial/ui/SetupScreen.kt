@@ -20,24 +20,41 @@ data class Team(
 fun SetupScreen(modifier: Modifier = Modifier) {
     var team1 by remember { mutableStateOf(Team("Team 1", List(23) { "Player ${it+1}" })) }
     var team2 by remember { mutableStateOf(Team("Team 2", List(23) { "Player ${it+1}" })) }
+    var editingSide by remember { mutableStateOf<Int?>(null) }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
+    if (editingSide != null) {
+        val current = if (editingSide == 1) team1 else team2
+
+        ModalBottomSheet(
+            onDismissRequest = { editingSide = null }
+        ) {
+            EditTeamSheet(
+                team = current,
+                onSave = { updated ->
+                    if (editingSide == 1) team1 = updated else team2 = updated
+                    editingSide = null
+                },
+                onCancel = { editingSide = null }
+            )
+        }
+    }
+
+    Row(modifier = modifier.fillMaxSize()) {
         TeamColumn(
             team = team1,
+            onEdit = { editingSide = 1 },
             modifier = Modifier.weight(1f)
         )
         TeamColumn(
             team = team2,
+            onEdit = { editingSide = 2 },
             modifier = Modifier.weight(1f)
         )
     }
 }
 
 @Composable
-fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
+fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -52,8 +69,33 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
             items(team.players.size) { i -> Text(team.players[i]) }
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = { }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
             Text("Edit Team")
+        }
+    }
+}
+
+@Composable
+fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
+    var name by remember { mutableStateOf(team.name) }
+    var players by remember { mutableStateOf(team.players) }
+
+    Column(Modifier.padding(16.dp)) {
+        Text("Edit team", style = MaterialTheme.typography.headlineSmall)
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Team name") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            Button(
+                onClick = { onSave(Team(name, players)) },
+                modifier = Modifier.weight(1f)
+            ) { Text("Save") }
         }
     }
 }
