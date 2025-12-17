@@ -10,18 +10,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
 import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(modifier: Modifier = Modifier,
-                team1 : Team, team2 : Team,
+                vm: MatchViewModel,
                 onTeam1Change: (Team) -> Unit,
                 onTeam2Change: (Team) -> Unit
 ) {
     var editingSide by remember { mutableStateOf<Int?>(null) }
 
     if (editingSide != null) {
-        val current = if (editingSide == 1) team1 else team2
+        val current = if (editingSide == 1) vm.team1 else vm.team2
 
         ModalBottomSheet(
             onDismissRequest = { editingSide = null }
@@ -39,12 +40,12 @@ fun SetupScreen(modifier: Modifier = Modifier,
 
     Row(modifier = modifier.fillMaxSize()) {
         TeamColumn(
-            team = team1,
+            team = vm.team1,
             onEdit = { editingSide = 1 },
             modifier = Modifier.weight(1f)
         )
         TeamColumn(
-            team = team2,
+            team = vm.team2,
             onEdit = { editingSide = 2 },
             modifier = Modifier.weight(1f)
         )
@@ -124,12 +125,10 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun SetupScreenPreview() {
-    val team1 = Team("Team 1", List(23) { "" })
-    val team2 = Team("Team 2", List(23) { "" })
+    val vm = MatchViewModel()
 
     SetupScreen(
-        team1 = team1,
-        team2 = team2,
+        vm = vm,
         onTeam1Change = {},
         onTeam2Change = {}
     )

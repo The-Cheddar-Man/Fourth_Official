@@ -1,13 +1,14 @@
 package com.example.fourthofficial.ui.viewmodel
 
 import android.os.SystemClock
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class MatchClockState(
@@ -15,40 +16,48 @@ data class MatchClockState(
     val elapsedMs: Long = 0L
 )
 
-class MatchClockViewModel : ViewModel() {
+class MatchViewModel : ViewModel() {
 
-    private val _state = MutableStateFlow(MatchClockState())
-    val state: StateFlow<MatchClockState> = _state.asStateFlow()
+    var team1 by mutableStateOf(Team("Team 1", List(23) { "" }))
+        private set
+
+    var team2 by mutableStateOf(Team("Team 2", List(23) { "" }))
+        private set
+
+    fun updateTeam1(updated: Team) { team1 = updated }
+    fun updateTeam2(updated: Team) { team2 = updated }
+
+    var clock by mutableStateOf(MatchClockState())
+        private set
 
     private var startRealtimeMs: Long = 0L
     private var baseElapsedMs: Long = 0L
     private var tickerJob: Job? = null
 
-    fun toggle() {
-        if (_state.value.isRunning) stop() else start()
+    fun toggleClock() {
+        if (clock.isRunning) stopClock() else startClock()
     }
 
-    fun start() {
-        if (_state.value.isRunning) return
+    fun startClock() {
+        if (clock.isRunning) return
 
-        baseElapsedMs = _state.value.elapsedMs
+        baseElapsedMs = clock.elapsedMs
         startRealtimeMs = SystemClock.elapsedRealtime()
-
-        _state.value = _state.value.copy(isRunning = true)
+        clock = clock.copy(isRunning = true)
 
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch {
             while (true) {
                 val now = SystemClock.elapsedRealtime()
                 val runningMs = now - startRealtimeMs
-                _state.value = _state.value.copy(elapsedMs = baseElapsedMs + runningMs)
-                delay(200) // or 1000 for 1/sec updates
+                clock = clock.copy(elapsedMs = baseElapsedMs + runningMs)
+                delay(200)
             }
         }
     }
 
-    fun stop() {
-        if (!_state.value.isRunning) return
+    fun stopClock() {
+        if (!clock.isRunning) return
 
         val now = SystemClock.elapsedRealtime()
         val runningMs = now - startRealtimeMs
@@ -56,16 +65,16 @@ class MatchClockViewModel : ViewModel() {
         tickerJob?.cancel()
         tickerJob = null
 
-        _state.value = MatchClockState(
+        clock = MatchClockState(
             isRunning = false,
             elapsedMs = baseElapsedMs + runningMs
         )
     }
 
-    fun reset() {
+    fun resetClock() {
         tickerJob?.cancel()
         tickerJob = null
         baseElapsedMs = 0L
-        _state.value = MatchClockState()
+        clock = MatchClockState()
     }
 }

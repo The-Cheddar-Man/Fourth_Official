@@ -9,32 +9,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.model.Team
-import com.example.fourthofficial.ui.viewmodel.MatchClockViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
 fun MatchScreen(modifier: Modifier = Modifier,
-                team1 : Team, team2 : Team, clockVm: MatchClockViewModel = viewModel()
+                vm: MatchViewModel
 ) {
-    val clock by clockVm.state.collectAsState()
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
             .fillMaxSize()
     ) {
-        Text(formatClock(clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
-        Button(onClick = { clockVm.toggle() }) {
-            Text(if (clock.isRunning) "Stop clock" else "Start clock")
+        Text(formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
+        Button(onClick = { vm.toggleClock() }) {
+            Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
         }
-        Row(modifier = modifier.fillMaxSize()) {
+        Row() {
             TeamColumn(
-                team = team1,
+                team = vm.team1,
                 modifier = Modifier.weight(1f)
             )
             TeamColumn(
-                team = team2,
+                team = vm.team2,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -45,14 +42,11 @@ fun MatchScreen(modifier: Modifier = Modifier,
 fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
-            .fillMaxHeight()
             .padding(5.dp))
     {
         Text(team.name, style = MaterialTheme.typography.headlineMedium)
         LazyColumn(
-            modifier = Modifier.weight(1f)
         ) {
             items(15) { i -> Text((i+1).toString() + ". " + team.players[i]) }
         }
@@ -70,11 +64,7 @@ private fun formatClock(ms: Long): String {
 @Preview(showBackground = true)
 @Composable
 private fun MatchScreenPreview() {
-    val team1 = Team("Team 1", List(23) { "" })
-    val team2 = Team("Team 2", List(23) { "" })
+    val vm = MatchViewModel()
 
-    MatchScreen(
-        team1 = team1,
-        team2 = team2
-    )
+    MatchScreen(vm = vm)
 }
