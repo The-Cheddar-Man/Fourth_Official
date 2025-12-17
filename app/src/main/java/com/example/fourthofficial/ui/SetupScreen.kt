@@ -12,9 +12,11 @@ import androidx.compose.ui.Alignment
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetupScreen(modifier: Modifier = Modifier) {
-    var team1 by remember { mutableStateOf(Team("Team 1", List(23){""})) }
-    var team2 by remember { mutableStateOf(Team("Team 2", List(23) {""})) }
+fun SetupScreen(modifier: Modifier = Modifier,
+                team1 : Team, team2 : Team,
+                onTeam1Change: (Team) -> Unit,
+                onTeam2Change: (Team) -> Unit
+) {
     var editingSide by remember { mutableStateOf<Int?>(null) }
 
     if (editingSide != null) {
@@ -26,7 +28,7 @@ fun SetupScreen(modifier: Modifier = Modifier) {
             EditTeamSheet(
                 team = current,
                 onSave = { updated ->
-                    if (editingSide == 1) team1 = updated else team2 = updated
+                    if (editingSide == 1) onTeam1Change(updated) else onTeam2Change(updated)
                     editingSide = null
                 },
                 onCancel = { editingSide = null }
@@ -121,5 +123,13 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 private fun SetupScreenPreview() {
-    SetupScreen()
+    val team1 = Team("Team 1", List(23) { "" })
+    val team2 = Team("Team 2", List(23) { "" })
+
+    SetupScreen(
+        team1 = team1,
+        team2 = team2,
+        onTeam1Change = {},
+        onTeam2Change = {}
+    )
 }

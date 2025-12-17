@@ -1,26 +1,64 @@
 package com.example.fourthofficial.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun MatchScreen(modifier: Modifier = Modifier) {
+fun MatchScreen(modifier: Modifier = Modifier,
+                team1 : Team, team2 : Team
+) {
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
     ) {
-        Text("Match Screen", style = MaterialTheme.typography.headlineMedium)
         Text("00:00", style = MaterialTheme.typography.displayMedium)
+        Button(onClick = {}) { Text("Start/stop match clock") }
+        Row(modifier = modifier.fillMaxSize()) {
+            TeamColumn(
+                team = team1,
+                modifier = Modifier.weight(1f)
+            )
+            TeamColumn(
+                team = team2,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(5.dp))
+    {
+        Text(team.name, style = MaterialTheme.typography.headlineMedium)
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
+            items(team.players.size) { i -> Text((i+1).toString() + ". " + team.players[i]) }
+        }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun MatchScreenPreview() {
-    MatchScreen()
+    val team1 = Team("Team 1", List(23) { "" })
+    val team2 = Team("Team 2", List(23) { "" })
+
+    MatchScreen(
+        team1 = team1,
+        team2 = team2
+    )
 }

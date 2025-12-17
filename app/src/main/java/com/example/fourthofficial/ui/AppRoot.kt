@@ -12,6 +12,8 @@ private enum class Screen {
 @Composable
 fun AppRoot() {
     var screen by remember { mutableStateOf(Screen.Setup) }
+    var team1 by remember { mutableStateOf(Team("Team 1", List(23){""})) }
+    var team2 by remember { mutableStateOf(Team("Team 2", List(23) {""})) }
 
     Scaffold(
         bottomBar = {
@@ -39,9 +41,21 @@ fun AppRoot() {
     ) { padding ->
 
         when (screen) {
-            Screen.Setup -> SetupScreen(modifier = Modifier.padding(padding))
-            Screen.Match -> MatchScreen(modifier = Modifier.padding(padding))
-            Screen.Summary -> SummaryScreen(modifier = Modifier.padding(padding))
+            Screen.Setup -> SetupScreen(
+                modifier = Modifier.padding(padding),
+                team1 = team1,
+                team2 = team2,
+                onTeam1Change = { team1 = it },
+                onTeam2Change = { team2 = it }
+            )
+            Screen.Match -> MatchScreen(
+                modifier = Modifier.padding(padding),
+                team1 = team1,
+                team2 = team2,
+            )
+            Screen.Summary -> SummaryScreen(
+                modifier = Modifier.padding(padding)
+            )
         }
     }
 }
