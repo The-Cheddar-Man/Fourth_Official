@@ -10,11 +10,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
 
-data class Team(
-    val name: String,
-    val players: List<String>
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(modifier: Modifier = Modifier) {
