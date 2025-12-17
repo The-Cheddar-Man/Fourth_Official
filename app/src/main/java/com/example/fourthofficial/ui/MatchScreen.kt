@@ -51,7 +51,7 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier) {
     {
         Text(team.name, style = MaterialTheme.typography.headlineMedium)
         LazyColumn {
-            items(15) { i -> Text((i+1).toString() + ". " + team.players[i]) }
+            items(15) { i -> Text((i+1).toString() + ". " + team.players[i].name) }
         }
     }
 }

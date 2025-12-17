@@ -83,7 +83,7 @@ fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
         LazyColumn(
             modifier = Modifier.weight(1f)
         ) {
-            items(team.players.size) { i -> Text((i+1).toString() + ". " + team.players[i]) }
+            items(team.players.size) { i -> Text((i+1).toString() + ". " + team.players[i].name) }
         }
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
@@ -121,8 +121,8 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
                 key = {index -> index}
             ) {
                 i -> OutlinedTextField(
-                    value = players[i],
-                    onValueChange = { players[i] = it },
+                value = players[i].name,
+                onValueChange = { newName -> players[i] = players[i].copy(name = newName) },
                     label = { Text("Player ${i + 1}") },
                     modifier = Modifier.fillMaxWidth()
                 )

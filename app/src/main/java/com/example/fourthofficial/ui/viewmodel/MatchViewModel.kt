@@ -2,10 +2,13 @@ package com.example.fourthofficial.ui.viewmodel
 
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.model.Player
+import com.example.fourthofficial.model.Substitution
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -18,18 +21,64 @@ data class MatchClockState(
 
 class MatchViewModel : ViewModel() {
 
-    var team1 by mutableStateOf(Team("Team 1", List(23) { "" }))
+    var team1 by mutableStateOf(defaultTeam("Team 1"))
         private set
 
-    var team2 by mutableStateOf(Team("Team 2", List(23) { "" }))
+    var team2 by mutableStateOf(defaultTeam("Team 2"))
         private set
-
-    fun updateTeam1(updated: Team) { team1 = updated }
-    fun updateTeam2(updated: Team) { team2 = updated }
 
     var clock by mutableStateOf(MatchClockState())
         private set
 
+    var subEvents = mutableStateListOf<Substitution>()
+        private set
+
+    fun defaultTeam(name: String): Team =
+        Team(
+            name,
+            List(23) { i ->
+                Player(
+                    name = "",
+                    number = i + 1,
+                    isOnField = i < 15
+                )
+            }
+        )
+
+    fun updateTeam1(updated: Team) { team1 = updated }
+    fun updateTeam2(updated: Team) { team2 = updated }
+
+    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
+        // capture the match time at the moment of the sub
+        val t = clock.elapsedMs
+
+        subEvents.add(
+            Substitution(
+                timeMs = t,
+                teamIndex = teamIndex,
+                playerOff = offNumber,
+                playerOn = onNumber
+            )
+        )
+    }
+
+    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
+        val team = if (teamIndex == 1) team1 else team2
+
+        val updatedPlayers = team.players.map { p ->
+            when (p.number) {
+                offNumber -> p.copy(isOnField = false)
+                onNumber  -> p.copy(isOnField = true)
+                else      -> p
+            }
+        }
+
+        val updatedTeam = team.copy(players = updatedPlayers)
+        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+
+        // record the event after applying it
+        recordSub(teamIndex, offNumber, onNumber)
+    }
     private var startRealtimeMs: Long = 0L
     private var baseElapsedMs: Long = 0L
     private var tickerJob: Job? = null
