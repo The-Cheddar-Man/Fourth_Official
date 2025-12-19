@@ -32,9 +32,8 @@ import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 fun MatchScreen(modifier: Modifier = Modifier,
                 vm: MatchViewModel
 ) {
-    var subTeamIndex by remember { mutableStateOf<Int?>(null) }
-    var subOffNumber by remember { mutableStateOf<Int?>(null) }
-    var subOnNumber by remember { mutableStateOf<Int?>(null) }
+    var selectedNumber by remember { mutableStateOf<Int?>(null) }
+    var selectedTeam by remember { mutableStateOf<Int?>(null) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -50,81 +49,86 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 team = vm.team1,
                 modifier = Modifier.weight(1f),
                 onPlayerTapped = { number ->
-                    subTeamIndex = 1
-                    subOffNumber = number
-                    subOnNumber = null
+                    selectedTeam = 1
+                    selectedNumber = number
                 }
             )
             TeamColumn(
                 team = vm.team2,
                 modifier = Modifier.weight(1f),
                 onPlayerTapped = { number ->
-                    subTeamIndex = 2
-                    subOffNumber = number
-                    subOnNumber = null
+                    selectedTeam = 2
+                    selectedNumber = number
                 }
             )
         }
     }
 
-    val teamIndex = subTeamIndex
-    val offNumber = subOffNumber
+    val teamIndex = selectedTeam
+    val offNumber = selectedNumber
 
     if (teamIndex != null && offNumber != null) {
-        val team = if (teamIndex == 1) vm.team1 else vm.team2
-        val bench = team.players.filter { !it.isOnField }
-
-        // options should be sub/score/penalty
-
-        AlertDialog(
-            onDismissRequest = {
-                subTeamIndex = null
-                subOffNumber = null
-                subOnNumber = null
+        SubAlert(
+            vm = vm,
+            teamIndex = teamIndex,
+            offNumber = offNumber,
+            onConfirm = { onNumber ->
+                vm.makeSub(teamIndex, offNumber, onNumber, "Unimplemented")
+                selectedTeam = null
+                selectedNumber = null
             },
-            title = { Text("Substitution") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Sub off $offNumber for:")
-
-                    bench.forEach { player ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { subOnNumber = player.number }
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (subOnNumber == player.number),
-                                onClick = { subOnNumber = player.number }
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("${player.number}. ${player.name.ifBlank { "(Unnamed)" }}")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    enabled = subOnNumber != null,
-                    onClick = {
-                        vm.makeSub(teamIndex, offNumber, subOnNumber!!,"Unimplemented")
-                        subTeamIndex = null
-                        subOffNumber = null
-                        subOnNumber = null
-                    }
-                ) { Text("Confirm") }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = {
-                    subTeamIndex = null
-                    subOffNumber = null
-                    subOnNumber = null
-                }) { Text("Cancel") }
+            onDismiss = {
+                selectedTeam = null
+                selectedNumber = null
             }
         )
     }
+}
+
+@Composable
+fun SubAlert(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
+    onConfirm: (Int) -> Unit, onDismiss: () -> Unit
+) {
+    var onNumber by remember { mutableStateOf<Int?>(null) }
+
+    val team = if (teamIndex == 1) vm.team1 else vm.team2
+    val bench = team.players.filter { !it.isOnField }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Substitution") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Sub off $offNumber for:")
+
+                bench.forEach { player ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNumber = player.number }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (onNumber == player.number),
+                            onClick = { onNumber = player.number }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("${player.number}. ${player.name.ifBlank { "(Unnamed)" }}")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = onNumber != null,
+                onClick = { onConfirm(onNumber!!) }
+            ) { Text("Confirm") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
