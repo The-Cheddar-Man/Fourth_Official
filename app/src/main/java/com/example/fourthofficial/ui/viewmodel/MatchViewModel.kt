@@ -37,10 +37,12 @@ class MatchViewModel : ViewModel() {
         Team(
             name,
             List(23) { i ->
+                val num = i + 1
                 Player(
-                    name = "",
-                    number = i + 1,
-                    isOnField = i < 15
+                    number = num,
+                    name = "player $num",
+                    isOnField = i < 15,
+                    fieldPos = if (i < 15) num else null
                 )
             }
         )
@@ -49,7 +51,6 @@ class MatchViewModel : ViewModel() {
     fun updateTeam2(updated: Team) { team2 = updated }
 
     fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
-        // capture the match time at the moment of the sub
         val t = clock.elapsedMs
 
         subEvents.add(
@@ -64,11 +65,12 @@ class MatchViewModel : ViewModel() {
 
     fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
         val team = if (teamIndex == 1) team1 else team2
+        val offPos = team.players.firstOrNull{it.number == offNumber} ?.fieldPos ?: return
 
         val updatedPlayers = team.players.map { p ->
             when (p.number) {
-                offNumber -> p.copy(isOnField = false)
-                onNumber  -> p.copy(isOnField = true)
+                offNumber -> p.copy(isOnField = false, fieldPos = null)
+                onNumber  -> p.copy(isOnField = true, fieldPos = offPos)
                 else      -> p
             }
         }
