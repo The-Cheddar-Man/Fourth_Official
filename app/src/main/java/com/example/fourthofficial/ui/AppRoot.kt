@@ -60,7 +60,8 @@ fun AppRoot() {
                 vm = matchVm
             )
             Screen.Summary -> SummaryScreen(
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.padding(padding),
+                vm = matchVm
             )
         }
     }

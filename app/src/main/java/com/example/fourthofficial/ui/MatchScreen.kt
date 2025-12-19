@@ -41,7 +41,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        Text(formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
+        Text(vm.formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
         Button(onClick = { vm.toggleClock() }) {
             Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
         }
@@ -150,14 +150,6 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             }
         }
     }
-}
-
-@Composable
-private fun formatClock(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%02d:%02d".format(minutes, seconds)
 }
 
 @Preview(showBackground = true)

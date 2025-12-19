@@ -95,6 +95,7 @@ fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
     var name by remember { mutableStateOf(team.name) }
+    val index = team.index
     val players = remember(team) { mutableStateListOf(*team.players.toTypedArray()) }
 
     Column(
@@ -132,7 +133,7 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
             Button(
-                onClick = { onSave(Team(name, players.toList())) },
+                onClick = { onSave(Team(name, index, players.toList())) },
                 modifier = Modifier.weight(1f)
             ) { Text("Save") }
         }

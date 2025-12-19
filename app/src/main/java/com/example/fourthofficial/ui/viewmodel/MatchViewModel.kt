@@ -21,10 +21,10 @@ data class MatchClockState(
 
 class MatchViewModel : ViewModel() {
 
-    var team1 by mutableStateOf(defaultTeam("Team 1"))
+    var team1 by mutableStateOf(defaultTeam("Team 1", 1))
         private set
 
-    var team2 by mutableStateOf(defaultTeam("Team 2"))
+    var team2 by mutableStateOf(defaultTeam("Team 2", 2))
         private set
 
     var clock by mutableStateOf(MatchClockState())
@@ -33,9 +33,10 @@ class MatchViewModel : ViewModel() {
     var subEvents = mutableStateListOf<Substitution>()
         private set
 
-    fun defaultTeam(name: String): Team =
+    fun defaultTeam(name: String, index: Int): Team =
         Team(
             name,
+            index = index,
             List(23) { i ->
                 val num = i + 1
                 Player(
@@ -127,5 +128,12 @@ class MatchViewModel : ViewModel() {
         tickerJob = null
         baseElapsedMs = 0L
         clock = MatchClockState()
+    }
+
+    fun formatClock(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return "%02d:%02d".format(minutes, seconds)
     }
 }
