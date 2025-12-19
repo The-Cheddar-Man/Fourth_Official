@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.Substitution
 import com.example.fourthofficial.ui.components.DataTable
@@ -146,6 +147,29 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
         var teamIndex by rememberSaveable { mutableStateOf(1) }
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
         Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
+
+        val team = if(teamIndex == 1) vm.team1 else vm.team2
+
+        val events = vm.discEvents
+            .filter { it.teamIndex == teamIndex }
+            .sortedBy { it.timeMs }
+
+        val columns = listOf(
+            TableColumn<Discipline>(header = "Type", weight = 1.5f) { e ->
+                e.type
+            },
+            TableColumn<Discipline>(header = "Reason", weight = 1.5f) { e ->
+                e.reason
+            },
+            TableColumn<Discipline>(header = "Player", weight = 1.5f) { e ->
+                "${e.player}. ${team.players[e.player-1].name}"
+            },
+            TableColumn<Discipline>(header = "Time", weight = 0.8f) { e ->
+                vm.formatClock(e.timeMs)
+            }
+        )
+
+        DataTable<Discipline>(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
     }
 }
 

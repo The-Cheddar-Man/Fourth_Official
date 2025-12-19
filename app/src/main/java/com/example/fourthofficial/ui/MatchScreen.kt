@@ -118,7 +118,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     teamIndex = teamIndex,
                     playerNumber = offNumber,
                     onConfirm = { scoreType ->
-                        vm.recordScore(teamIndex = teamIndex, playerNumber = offNumber, scoreType = scoreType)
+                        vm.recordScore(teamIndex, offNumber, scoreType)
                         selectedTeam = null
                         selectedNumber = null
                     },
@@ -147,7 +147,20 @@ fun MatchScreen(modifier: Modifier = Modifier,
             }
 
             DialogStep.DISC -> {
-
+                DisciplineDialogue(
+                    vm = vm,
+                    teamIndex = teamIndex,
+                    playerNumber = offNumber,
+                    onConfirm = { discType ->
+                        vm.recordDiscipline( teamIndex, offNumber, discType, "Unimplemented")
+                        selectedTeam = null
+                        selectedNumber = null
+                    },
+                    onDismiss = {
+                        selectedTeam = null
+                        selectedNumber = null
+                    }
+                )
             }
 
             DialogStep.NONE -> Unit
@@ -159,9 +172,9 @@ fun MatchScreen(modifier: Modifier = Modifier,
 fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
              onConfirm: (String) -> Unit, onDismiss: () -> Unit
 ) {
-    var chosenType by remember { mutableStateOf<String?>(null) }
-    val team = if (teamIndex == 1) vm.team1 else vm.team2
     val scoreTypes = listOf("Try", "Conversion", "Penalty Kick", "Drop Goal")
+    val team = if (teamIndex == 1) vm.team1 else vm.team2
+    var chosenType by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -205,7 +218,6 @@ fun SubDialogue(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
              onConfirm: (Int) -> Unit, onDismiss: () -> Unit
 ) {
     var onNumber by remember { mutableStateOf<Int?>(null) }
-
     val team = if (teamIndex == 1) vm.team1 else vm.team2
     val bench = team.players.filter { !it.isOnField }
 
@@ -238,6 +250,51 @@ fun SubDialogue(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
             Button(
                 enabled = onNumber != null,
                 onClick = { onConfirm(onNumber!!) }
+            ) { Text("Confirm") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun DisciplineDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
+                  onConfirm: (String) -> Unit, onDismiss: () -> Unit
+) {
+    val discTypes = listOf("Yellow Card", "Red Card")
+    val team = if (teamIndex == 1) vm.team1 else vm.team2
+    var chosenType by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Scoring") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Player ${team.players[playerNumber - 1].name} Disciplined:")
+
+                discTypes.forEach { type ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { chosenType = type }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (chosenType == type),
+                            onClick = { chosenType = type }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(type)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = chosenType != null,
+                onClick = { onConfirm(chosenType!!) }
             ) { Text("Confirm") }
         },
         dismissButton = {
