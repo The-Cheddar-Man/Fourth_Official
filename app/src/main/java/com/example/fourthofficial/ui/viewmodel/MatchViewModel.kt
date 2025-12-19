@@ -7,7 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.Player
+import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.Substitution
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
@@ -30,7 +32,13 @@ class MatchViewModel : ViewModel() {
     var clock by mutableStateOf(MatchClockState())
         private set
 
+    var scoreEvents = mutableStateListOf<Score>()
+        private set
+
     var subEvents = mutableStateListOf<Substitution>()
+        private set
+
+    var discEvents = mutableStateListOf<Discipline>()
         private set
 
     fun defaultTeam(name: String, index: Int): Team =
@@ -51,7 +59,20 @@ class MatchViewModel : ViewModel() {
     fun updateTeam1(updated: Team) { team1 = updated }
     fun updateTeam2(updated: Team) { team2 = updated }
 
-    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
+    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: String) {
+        val t = clock.elapsedMs
+
+        scoreEvents.add(
+            Score(
+                timeMs = t,
+                teamIndex = teamIndex,
+                player = playerNumber,
+                type = scoreType
+            )
+        )
+    }
+
+    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: String) {
         val t = clock.elapsedMs
 
         subEvents.add(
@@ -60,12 +81,12 @@ class MatchViewModel : ViewModel() {
                 teamIndex = teamIndex,
                 playerOff = offNumber,
                 playerOn = onNumber,
-                reason = "Unimplemented"
+                reason = reason
             )
         )
     }
 
-    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int) {
+    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: String) {
         val team = if (teamIndex == 1) team1 else team2
         val offPos = team.players.firstOrNull{it.number == offNumber} ?.fieldPos ?: return
 
@@ -80,9 +101,23 @@ class MatchViewModel : ViewModel() {
         val updatedTeam = team.copy(players = updatedPlayers)
         if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
 
-        // record the event after applying it
-        recordSub(teamIndex, offNumber, onNumber)
+        recordSub(teamIndex, offNumber, onNumber, reason)
     }
+
+    fun recordDiscipline(teamIndex: Int, playerNumber: Int, discType: String, reason: String) {
+        val t = clock.elapsedMs
+
+        discEvents.add(
+            Discipline(
+                timeMs = t,
+                teamIndex = teamIndex,
+                player = playerNumber,
+                type = discType,
+                reason = reason
+            )
+        )
+    }
+
     private var startRealtimeMs: Long = 0L
     private var baseElapsedMs: Long = 0L
     private var tickerJob: Job? = null

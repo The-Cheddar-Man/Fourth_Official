@@ -109,7 +109,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 Button(
                     enabled = subOnNumber != null,
                     onClick = {
-                        vm.makeSub(teamIndex, offNumber, subOnNumber!!)
+                        vm.makeSub(teamIndex, offNumber, subOnNumber!!,"Unimplemented")
                         subTeamIndex = null
                         subOffNumber = null
                         subOnNumber = null
