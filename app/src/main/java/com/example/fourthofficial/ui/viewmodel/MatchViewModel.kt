@@ -59,7 +59,8 @@ class MatchViewModel : ViewModel() {
                 timeMs = t,
                 teamIndex = teamIndex,
                 playerOff = offNumber,
-                playerOn = onNumber
+                playerOn = onNumber,
+                reason = "Unimplemented"
             )
         )
     }
