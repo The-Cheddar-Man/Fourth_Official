@@ -85,7 +85,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
                 e.type
             },
             TableColumn<Score>(header = "Player", weight = 1.5f) { e ->
-                "${e.player}. ${team.players[e.player].name}"
+                "${e.player}. ${team.players[e.player-1].name}"
             },
             TableColumn<Score>(header = "Time", weight = 0.8f) { e ->
                 vm.formatClock(e.timeMs)
@@ -117,13 +117,13 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
 
         val columns = listOf(
             TableColumn<Substitution>(header = "Off", weight = 1.5f) { e ->
-                "${e.playerOff}. ${team.players[e.playerOff].name}"
+                "${e.playerOff}. ${team.players[e.playerOff-1].name}"
             },
             TableColumn<Substitution>(header = "Reason", weight = 1.5f) { e ->
                 e.reason
             },
             TableColumn<Substitution>(header = "On", weight = 1.5f) { e ->
-                "${e.playerOn}. ${team.players[e.playerOn].name}"
+                "${e.playerOn}. ${team.players[e.playerOn-1].name}"
             },
             TableColumn<Substitution>(header = "Time", weight = 0.8f) { e ->
                 vm.formatClock(e.timeMs)

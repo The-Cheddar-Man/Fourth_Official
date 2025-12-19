@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,8 +26,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.example.fourthofficial.model.Team
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
+
+enum class DialogStep {
+    MAIN,
+    SCORE,
+    SUB,
+    DISC,
+    NONE
+}
 
 @Composable
 fun MatchScreen(modifier: Modifier = Modifier,
@@ -34,6 +44,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
 ) {
     var selectedNumber by remember { mutableStateOf<Int?>(null) }
     var selectedTeam by remember { mutableStateOf<Int?>(null) }
+    var dialogStep by remember { mutableStateOf(DialogStep.NONE) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -51,6 +62,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 onPlayerTapped = { number ->
                     selectedTeam = 1
                     selectedNumber = number
+                    dialogStep = DialogStep.MAIN
                 }
             )
             TeamColumn(
@@ -59,6 +71,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 onPlayerTapped = { number ->
                     selectedTeam = 2
                     selectedNumber = number
+                    dialogStep = DialogStep.MAIN
                 }
             )
         }
@@ -68,26 +81,128 @@ fun MatchScreen(modifier: Modifier = Modifier,
     val offNumber = selectedNumber
 
     if (teamIndex != null && offNumber != null) {
-        SubAlert(
-            vm = vm,
-            teamIndex = teamIndex,
-            offNumber = offNumber,
-            onConfirm = { onNumber ->
-                vm.makeSub(teamIndex, offNumber, onNumber, "Unimplemented")
-                selectedTeam = null
-                selectedNumber = null
-            },
-            onDismiss = {
-                selectedTeam = null
-                selectedNumber = null
+        val team = if (teamIndex == 1) vm.team1 else vm.team2
+        when (dialogStep) {
+
+            DialogStep.MAIN -> {
+                Dialog(onDismissRequest = { dialogStep = DialogStep.NONE })
+                {
+                    Surface(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    tonalElevation = 6.dp,
+                    color = MaterialTheme.colorScheme.surface
+                )
+                {
+                    Column (
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("Select Action For Player ${team.players[offNumber-1].name}")
+                        Button(onClick = { dialogStep = DialogStep.SCORE }) {
+                            Text("Score")
+                        }
+                        Button(onClick = { dialogStep = DialogStep.SUB }) {
+                            Text("Substitution")
+                        }
+                        Button(onClick = { dialogStep = DialogStep.DISC }) {
+                            Text("Discipline")
+                        }
+                    }
+                }
             }
-        )
+                }
+
+            DialogStep.SCORE -> {
+                ScoreDialogue(
+                    vm = vm,
+                    teamIndex = teamIndex,
+                    playerNumber = offNumber,
+                    onConfirm = { scoreType ->
+                        vm.recordScore(teamIndex = teamIndex, playerNumber = offNumber, scoreType = scoreType)
+                        selectedTeam = null
+                        selectedNumber = null
+                    },
+                    onDismiss = {
+                        selectedTeam = null
+                        selectedNumber = null
+                    }
+                )
+            }
+
+            DialogStep.SUB -> {
+                SubDialogue(
+                    vm = vm,
+                    teamIndex = teamIndex,
+                    offNumber = offNumber,
+                    onConfirm = { onNumber ->
+                        vm.makeSub(teamIndex, offNumber, onNumber, "Unimplemented")
+                        selectedTeam = null
+                        selectedNumber = null
+                    },
+                    onDismiss = {
+                        selectedTeam = null
+                        selectedNumber = null
+                    }
+                )
+            }
+
+            DialogStep.DISC -> {
+
+            }
+
+            DialogStep.NONE -> Unit
+        }
     }
 }
 
 @Composable
-fun SubAlert(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
-    onConfirm: (Int) -> Unit, onDismiss: () -> Unit
+fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
+             onConfirm: (String) -> Unit, onDismiss: () -> Unit
+) {
+    var chosenType by remember { mutableStateOf<String?>(null) }
+    val team = if (teamIndex == 1) vm.team1 else vm.team2
+    val scoreTypes = listOf("Try", "Conversion", "Penalty Kick", "Drop Goal")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Scoring") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Player ${team.players[playerNumber - 1].name} Scored:")
+
+                scoreTypes.forEach { type ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { chosenType = type }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (chosenType == type),
+                            onClick = { chosenType = type }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(type)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = chosenType != null,
+                onClick = { onConfirm(chosenType!!) }
+            ) { Text("Confirm") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun SubDialogue(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
+             onConfirm: (Int) -> Unit, onDismiss: () -> Unit
 ) {
     var onNumber by remember { mutableStateOf<Int?>(null) }
 
