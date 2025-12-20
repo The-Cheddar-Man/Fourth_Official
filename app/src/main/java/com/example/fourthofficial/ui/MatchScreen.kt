@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -63,9 +64,63 @@ fun MatchScreen(modifier: Modifier = Modifier,
         modifier = modifier.fillMaxSize()
     ) {
         Text(vm.formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
-        Button(onClick = { vm.toggleClock() }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Button(onClick = { vm.toggleClock() }, modifier = Modifier.weight(1f)) {
             Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
         }
+            Button(onClick = { vm.resetClock() }, modifier = Modifier.weight(1f)) {
+                Text( "Reset Clock")
+            }
+            Button(onClick = { }, modifier = Modifier.weight(1f)) {
+                Text( "Log Half")
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "0" )
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "Score" )
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "0" )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "0" )
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "Score (HT)" )
+            Text(
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                text = "0" )
+        }
+
         Row {
             TeamColumn(
                 team = vm.team1,
