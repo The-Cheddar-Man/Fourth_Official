@@ -1,5 +1,6 @@
 package com.example.fourthofficial.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,14 @@ fun MatchScreen(modifier: Modifier = Modifier,
     var selectedTeam by remember { mutableStateOf<Int?>(null) }
     var dialogStep by remember { mutableStateOf(DialogStep.NONE) }
 
+    val clearSelection = {
+        selectedTeam = null
+        selectedNumber = null
+        dialogStep = DialogStep.NONE
+    }
+
+    fun setDialogState(state:DialogStep) {dialogStep = state}
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -87,7 +96,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
         when (dialogStep) {
 
             DialogStep.MAIN -> {
-                Dialog(onDismissRequest = { dialogStep = DialogStep.NONE })
+                Dialog(onDismissRequest = { setDialogState(DialogStep.NONE) })
                 {
                     Surface(
                     shape = MaterialTheme.shapes.extraLarge,
@@ -104,13 +113,13 @@ fun MatchScreen(modifier: Modifier = Modifier,
                         modifier = Modifier.padding(24.dp)
                     ) {
                         Text("Select Action For ${team.players[offNumber-1].name}")
-                        Button(onClick = { dialogStep = DialogStep.SCORE }) {
+                        Button(onClick = { setDialogState(DialogStep.SCORE) }) {
                             Text("Score")
                         }
-                        Button(onClick = { dialogStep = DialogStep.SUB }) {
+                        Button(onClick = { setDialogState(DialogStep.SUB) }) {
                             Text("Substitution")
                         }
-                        Button(onClick = { dialogStep = DialogStep.DISC }) {
+                        Button(onClick = { setDialogState(DialogStep.DISC) }) {
                             Text("Discipline")
                         }
                     }
@@ -125,12 +134,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     playerNumber = offNumber,
                     onConfirm = { scoreType ->
                         vm.recordScore(teamIndex, offNumber, scoreType)
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     },
                     onDismiss = {
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     }
                 )
             }
@@ -142,12 +149,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     offNumber = offNumber,
                     onConfirm = { onNumber ->
                         vm.makeSub(teamIndex, offNumber, onNumber, "Unimplemented")
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     },
                     onDismiss = {
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     }
                 )
             }
@@ -159,12 +164,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     playerNumber = offNumber,
                     onConfirm = { discType ->
                         vm.recordDiscipline( teamIndex, offNumber, discType, "Unimplemented")
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     },
                     onDismiss = {
-                        selectedTeam = null
-                        selectedNumber = null
+                        clearSelection()
                     }
                 )
             }
@@ -334,6 +337,7 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
     }
 }
 
+@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 private fun MatchScreenPreview() {

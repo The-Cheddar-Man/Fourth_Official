@@ -23,24 +23,26 @@ fun AppRoot() {
     var screen by rememberSaveable { mutableStateOf(Screen.Setup) }
     val matchVm: MatchViewModel = viewModel()
 
+    fun setScreen(newScreen:Screen){screen = newScreen}
+
     Scaffold(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
                     selected = screen == Screen.Setup,
-                    onClick = { screen = Screen.Setup },
+                    onClick = { setScreen(Screen.Setup) },
                     label = { Text("Setup") },
                     icon = {}
                 )
                 NavigationBarItem(
                     selected = screen == Screen.Match,
-                    onClick = { screen = Screen.Match },
+                    onClick = { setScreen(Screen.Match) },
                     label = { Text("Match") },
                     icon = {}
                 )
                 NavigationBarItem(
                     selected = screen == Screen.Summary,
-                    onClick = { screen = Screen.Summary },
+                    onClick = { setScreen(Screen.Summary) },
                     label = { Text("Summary") },
                     icon = {}
                 )

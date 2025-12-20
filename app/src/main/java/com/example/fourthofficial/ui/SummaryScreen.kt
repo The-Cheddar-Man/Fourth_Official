@@ -1,5 +1,6 @@
 package com.example.fourthofficial.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -71,7 +73,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        var teamIndex by rememberSaveable { mutableStateOf(1) }
+        var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Scores", style = MaterialTheme.typography.headlineMedium)
         Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
 
@@ -82,10 +84,10 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .sortedBy { it.timeMs }
 
         val columns = listOf(
-            TableColumn<Score>(header = "Type", weight = 1.5f) { e ->
+            TableColumn(header = "Type", weight = 1.5f) { e ->
                 e.type
             },
-            TableColumn<Score>(header = "Player", weight = 1.5f) { e ->
+            TableColumn(header = "Player", weight = 1.5f) { e ->
                 "${e.player}. ${team.players[e.player-1].name}"
             },
             TableColumn<Score>(header = "Time", weight = 0.8f) { e ->
@@ -93,7 +95,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             }
         )
 
-        DataTable<Score>(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
     }
 }
 
@@ -106,7 +108,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        var teamIndex by rememberSaveable { mutableStateOf(1) }
+        var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
         Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
 
@@ -117,13 +119,13 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
             .sortedBy { it.timeMs }
 
         val columns = listOf(
-            TableColumn<Substitution>(header = "Off", weight = 1.5f) { e ->
+            TableColumn(header = "Off", weight = 1.5f) { e ->
                 "${e.playerOff}. ${team.players[e.playerOff-1].name}"
             },
-            TableColumn<Substitution>(header = "Reason", weight = 1.5f) { e ->
+            TableColumn(header = "Reason", weight = 1.5f) { e ->
                 e.reason
             },
-            TableColumn<Substitution>(header = "On", weight = 1.5f) { e ->
+            TableColumn(header = "On", weight = 1.5f) { e ->
                 "${e.playerOn}. ${team.players[e.playerOn-1].name}"
             },
             TableColumn<Substitution>(header = "Time", weight = 0.8f) { e ->
@@ -131,7 +133,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
             }
         )
 
-        DataTable<Substitution>(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
     }
 }
 
@@ -144,7 +146,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        var teamIndex by rememberSaveable { mutableStateOf(1) }
+        var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
         Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
 
@@ -155,13 +157,13 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .sortedBy { it.timeMs }
 
         val columns = listOf(
-            TableColumn<Discipline>(header = "Type", weight = 1.5f) { e ->
+            TableColumn(header = "Type", weight = 1.5f) { e ->
                 e.type
             },
-            TableColumn<Discipline>(header = "Reason", weight = 1.5f) { e ->
+            TableColumn(header = "Reason", weight = 1.5f) { e ->
                 e.reason
             },
-            TableColumn<Discipline>(header = "Player", weight = 1.5f) { e ->
+            TableColumn(header = "Player", weight = 1.5f) { e ->
                 "${e.player}. ${team.players[e.player-1].name}"
             },
             TableColumn<Discipline>(header = "Time", weight = 0.8f) { e ->
@@ -169,7 +171,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             }
         )
 
-        DataTable<Discipline>(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
     }
 }
 
@@ -182,7 +184,7 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        var teamIndex by rememberSaveable { mutableStateOf(1) }
+        var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Export Data", style = MaterialTheme.typography.headlineMedium)
         Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
     }
@@ -195,6 +197,7 @@ private fun switchTeams(teamIndex: Int) : Int
     return 1
 }
 
+@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 private fun SummaryScreenPreview() {

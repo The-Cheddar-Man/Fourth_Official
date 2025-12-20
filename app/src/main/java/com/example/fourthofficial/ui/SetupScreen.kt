@@ -1,5 +1,6 @@
 package com.example.fourthofficial.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,20 +39,21 @@ fun SetupScreen(modifier: Modifier = Modifier,
                 onTeam2Change: (Team) -> Unit
 ) {
     var editingSide by remember { mutableStateOf<Int?>(null) }
+    val clearSelection = { editingSide = null }
 
     if (editingSide != null) {
         val current = if (editingSide == 1) vm.team1 else vm.team2
 
         ModalBottomSheet(
-            onDismissRequest = { editingSide = null }
+            onDismissRequest = { clearSelection() }
         ) {
             EditTeamSheet(
                 team = current,
                 onSave = { updated ->
                     if (editingSide == 1) onTeam1Change(updated) else onTeam2Change(updated)
-                    editingSide = null
+                    clearSelection()
                 },
-                onCancel = { editingSide = null }
+                onCancel = { clearSelection() }
             )
         }
     }
@@ -140,13 +142,12 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
     }
 }
 
+@SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
 private fun SetupScreenPreview() {
-    val vm = MatchViewModel()
-
     SetupScreen(
-        vm = vm,
+        vm = MatchViewModel(),
         onTeam1Change = {},
         onTeam2Change = {}
     )
