@@ -81,7 +81,7 @@ fun TeamColumn(team: Team, onEdit: () -> Unit, modifier: Modifier = Modifier) {
             .fillMaxHeight()
             .padding(5.dp))
     {
-        Text(team.name, style = MaterialTheme.typography.headlineMedium)
+        Text(if(team.name!="") team.name else "Team ${team.index}", style = MaterialTheme.typography.headlineMedium)
         LazyColumn(
             modifier = Modifier.weight(1f)
         ) {
@@ -108,7 +108,7 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Team name") },
+            label = { Text("Team Name") },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -126,8 +126,8 @@ fun EditTeamSheet(team: Team, onSave: (Team) -> Unit, onCancel: () -> Unit) {
                 i -> OutlinedTextField(
                 value = players[i].name,
                 onValueChange = { newName -> players[i] = players[i].copy(name = newName) },
-                    label = { Text("Player ${i + 1}") },
-                    modifier = Modifier.fillMaxWidth()
+                label = { Text("Player ${i + 1}") },
+                modifier = Modifier.fillMaxWidth()
                 )
             }
         }

@@ -21,9 +21,8 @@ private enum class Screen {
 @Composable
 fun AppRoot() {
     var screen by rememberSaveable { mutableStateOf(Screen.Setup) }
-    val matchVm: MatchViewModel = viewModel()
-
     fun setScreen(newScreen:Screen){screen = newScreen}
+    val matchVm: MatchViewModel = viewModel()
 
     Scaffold(
         bottomBar = {

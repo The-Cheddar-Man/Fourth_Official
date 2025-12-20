@@ -75,7 +75,9 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Scores", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
+        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
+            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
 
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
@@ -110,7 +112,9 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
+        Button(onClick = {teamIndex = switchTeams(teamIndex)}) {Text(
+            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
 
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
@@ -148,8 +152,9 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(if (teamIndex == 1) vm.team1.name else vm.team2.name) }
-
+        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
+            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
         val events = vm.discEvents

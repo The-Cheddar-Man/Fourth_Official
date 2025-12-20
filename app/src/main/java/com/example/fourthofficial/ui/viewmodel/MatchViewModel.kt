@@ -23,10 +23,10 @@ data class MatchClockState(
 
 class MatchViewModel : ViewModel() {
 
-    var team1 by mutableStateOf(defaultTeam("Team 1", 1))
+    var team1 by mutableStateOf(defaultTeam(1))
         private set
 
-    var team2 by mutableStateOf(defaultTeam("Team 2", 2))
+    var team2 by mutableStateOf(defaultTeam(2))
         private set
 
     var clock by mutableStateOf(MatchClockState())
@@ -41,15 +41,15 @@ class MatchViewModel : ViewModel() {
     var discEvents = mutableStateListOf<Discipline>()
         private set
 
-    fun defaultTeam(name: String, index: Int): Team =
+    fun defaultTeam(index: Int): Team =
         Team(
-            name,
+            name = "",
             index = index,
             List(23) { i ->
                 val num = i + 1
                 Player(
                     number = num,
-                    name = "player $num",
+                    name = "",
                     isOnField = i < 15,
                     fieldPos = if (i < 15) num else null
                 )
