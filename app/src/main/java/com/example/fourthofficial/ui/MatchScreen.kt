@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -89,15 +91,19 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 {
                     Surface(
                     shape = MaterialTheme.shapes.extraLarge,
-                    tonalElevation = 6.dp,
-                    color = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .wrapContentWidth()
+                        .wrapContentHeight()
+                        .padding(24.dp),
                 )
                 {
                     Column (
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(24.dp)
                     ) {
-                        Text("Select Action For Player ${team.players[offNumber-1].name}")
+                        Text("Select Action For ${team.players[offNumber-1].name}")
                         Button(onClick = { dialogStep = DialogStep.SCORE }) {
                             Text("Score")
                         }
