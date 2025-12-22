@@ -14,6 +14,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             FourthOfficialTheme {
                 AppRoot()
+                // BitBranch test
             }
         }
     }
