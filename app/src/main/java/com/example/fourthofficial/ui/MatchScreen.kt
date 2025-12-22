@@ -32,6 +32,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.model.Score
+import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 enum class DialogStep {
@@ -87,7 +89,9 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents
+                    .filter { it.teamIndex == 1 }
+                    .sumOf { it.type.points }.toString() )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
@@ -97,7 +101,9 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents
+                    .filter { it.teamIndex == 2 }
+                    .sumOf { it.type.points }.toString() )
         }
 
         Row(
@@ -234,11 +240,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
 
 @Composable
 fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
-             onConfirm: (String) -> Unit, onDismiss: () -> Unit
+             onConfirm: (ScoreType) -> Unit, onDismiss: () -> Unit
 ) {
-    val scoreTypes = listOf("Try", "Conversion", "Penalty Kick", "Drop Goal")
     val team = if (teamIndex == 1) vm.team1 else vm.team2
-    var chosenType by remember { mutableStateOf<String?>(null) }
+    var chosenType by remember { mutableStateOf<ScoreType?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -247,7 +252,7 @@ fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Player ${team.players[playerNumber - 1].name} Scored:")
 
-                scoreTypes.forEach { type ->
+                ScoreType.values().forEach { type ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -260,7 +265,7 @@ fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
                             onClick = { chosenType = type }
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(type)
+                        Text(type.label)
                     }
                 }
             }

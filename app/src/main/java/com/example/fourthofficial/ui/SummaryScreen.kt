@@ -87,7 +87,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
-                e.type
+                e.type.label
             },
             TableColumn(header = "Player", weight = 1.5f) { e ->
                 "${e.player}. ${team.players[e.player-1].name}"

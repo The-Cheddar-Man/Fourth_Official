@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.Player
 import com.example.fourthofficial.model.Score
+import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.model.Substitution
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
@@ -59,7 +60,7 @@ class MatchViewModel : ViewModel() {
     fun updateTeam1(updated: Team) { team1 = updated }
     fun updateTeam2(updated: Team) { team2 = updated }
 
-    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: String) {
+    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: ScoreType) {
         val t = clock.elapsedMs
 
         scoreEvents.add(
