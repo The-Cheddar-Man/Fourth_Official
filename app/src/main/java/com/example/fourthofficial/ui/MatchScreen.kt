@@ -377,6 +377,8 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             .filter { it.isOnField }
             .sortedBy { it.fieldPos ?: 999 }
 
+        Text(if(team.name!="") team.name else "Team ${team.index}", style = MaterialTheme.typography.headlineMedium)
+
         LazyColumn {
             items(onField.size) { i ->
                 val player = onField[i]
