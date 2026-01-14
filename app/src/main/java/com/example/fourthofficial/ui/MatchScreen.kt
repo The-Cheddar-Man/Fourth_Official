@@ -63,14 +63,47 @@ fun MatchScreen(modifier: Modifier = Modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        Text(vm.formatClock(vm.clock.elapsedMs), style = MaterialTheme.typography.displayMedium)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                "Elapsed Time",
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                "Remaining Time",
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                vm.formatClock(vm.clock.elapsedMs),
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.displayMedium
+            )
+            Text(
+                vm.formatClock(2400999 - vm.clock.elapsedMs),
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.displayMedium
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
             Button(onClick = { vm.toggleClock() }, modifier = Modifier.weight(1f)) {
             Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
-        }
+            }
             Button(onClick = { vm.resetClock() }, modifier = Modifier.weight(1f)) {
                 Text( "Reset Clock")
             }
