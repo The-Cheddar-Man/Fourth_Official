@@ -2,6 +2,7 @@ package com.example.fourthofficial.ui.viewmodel
 
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -41,6 +42,19 @@ class MatchViewModel : ViewModel() {
     var discEvents = mutableStateListOf<Discipline>()
         private set
 
+    var halfTimeMs = mutableLongStateOf(0L)
+        private set
+
+    private val halfDurationMs = 40L * 60L * 1000L
+
+    private var matchOffsetMs by mutableLongStateOf(0L)
+
+    val halfElapsedMs: Long
+        get() = matchOffsetMs + clock.elapsedMs
+
+    val halfRemainingMs: Long
+        get() = (halfDurationMs - clock.elapsedMs )
+
     fun defaultTeam(index: Int): Team =
         Team(
             name = "",
@@ -60,7 +74,7 @@ class MatchViewModel : ViewModel() {
     fun updateTeam2(updated: Team) { team2 = updated }
 
     fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: String) {
-        val t = clock.elapsedMs
+        val t = halfElapsedMs
 
         scoreEvents.add(
             Score(
@@ -73,7 +87,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: String) {
-        val t = clock.elapsedMs
+        val t = halfElapsedMs
 
         subEvents.add(
             Substitution(
@@ -105,7 +119,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun recordDiscipline(teamIndex: Int, playerNumber: Int, discType: String, reason: String) {
-        val t = clock.elapsedMs
+        val t = halfElapsedMs
 
         discEvents.add(
             Discipline(
@@ -116,6 +130,15 @@ class MatchViewModel : ViewModel() {
                 reason = reason
             )
         )
+    }
+
+    fun logHalf() {
+        halfTimeMs.longValue = halfElapsedMs
+        matchOffsetMs = halfDurationMs
+        tickerJob?.cancel()
+        tickerJob = null
+        baseElapsedMs = 0L
+        clock = MatchClockState()
     }
 
     private var startRealtimeMs: Long = 0L
@@ -164,10 +187,16 @@ class MatchViewModel : ViewModel() {
         tickerJob = null
         baseElapsedMs = 0L
         clock = MatchClockState()
+        matchOffsetMs = 0L
     }
 
-    fun formatClock(ms: Long): String {
-        val totalSeconds = ms / 1000
+    fun formatClock(ms: Long, remaining: Boolean): String {
+        val remainingMs = 999 + ms
+        var totalSeconds = ms / 1000
+        if(remaining)
+        {
+            totalSeconds = remainingMs / 1000
+        }
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return "%02d:%02d".format(minutes, seconds)

@@ -93,7 +93,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
                 "${e.player}. ${team.players[e.player-1].name}"
             },
             TableColumn<Score>(header = "Time", weight = 0.8f) { e ->
-                vm.formatClock(e.timeMs)
+                vm.formatClock(e.timeMs, false)
             }
         )
 
@@ -133,7 +133,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
                 "${e.playerOn}. ${team.players[e.playerOn-1].name}"
             },
             TableColumn<Substitution>(header = "Time", weight = 0.8f) { e ->
-                vm.formatClock(e.timeMs)
+                vm.formatClock(e.timeMs, false)
             }
         )
 
@@ -172,7 +172,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
                 "${e.player}. ${team.players[e.player-1].name}"
             },
             TableColumn<Discipline>(header = "Time", weight = 0.8f) { e ->
-                vm.formatClock(e.timeMs)
+                vm.formatClock(e.timeMs, false)
             }
         )
 

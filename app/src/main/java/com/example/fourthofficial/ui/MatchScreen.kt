@@ -85,13 +85,13 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 .fillMaxWidth()
         ) {
             Text(
-                vm.formatClock(vm.clock.elapsedMs),
+                vm.formatClock(vm.halfElapsedMs, false),
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.displayMedium
             )
             Text(
-                vm.formatClock(2400999 - vm.clock.elapsedMs),
+                vm.formatClock(vm.halfRemainingMs, true),
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.displayMedium
@@ -107,7 +107,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
             Button(onClick = { vm.resetClock() }, modifier = Modifier.weight(1f)) {
                 Text( "Reset Clock")
             }
-            Button(onClick = { }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { vm.logHalf() }, modifier = Modifier.weight(1f)) {
                 Text( "Log Half")
             }
         }
