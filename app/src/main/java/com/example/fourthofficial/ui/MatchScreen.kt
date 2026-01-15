@@ -3,6 +3,7 @@ package com.example.fourthofficial.ui
 import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -411,6 +412,15 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             .sortedBy { it.fieldPos ?: 999 }
 
         LazyColumn {
+            item{
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(team.name.ifBlank { "Team ${team.index}" }, textAlign = TextAlign.Center)
+                }
+            }
             items(onField.size) { i ->
                 val player = onField[i]
                 Text(

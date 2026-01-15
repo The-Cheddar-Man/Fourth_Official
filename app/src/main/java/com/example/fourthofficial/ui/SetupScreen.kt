@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.model.Player
@@ -78,7 +79,8 @@ private fun TeamColumn(team: Team, onSave: (Team) -> Unit, modifier: Modifier = 
         if (!isEditing) {
             Text(
                 text = team.name.ifBlank { "Team ${team.index}" },
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center
             )
 
             LazyColumn(
