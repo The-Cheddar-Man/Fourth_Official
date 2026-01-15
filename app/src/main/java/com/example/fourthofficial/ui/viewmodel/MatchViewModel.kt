@@ -80,6 +80,7 @@ class MatchViewModel : ViewModel() {
             Score(
                 timeMs = t,
                 teamIndex = teamIndex,
+                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
                 player = playerNumber,
                 type = scoreType
             )
@@ -93,6 +94,7 @@ class MatchViewModel : ViewModel() {
             Substitution(
                 timeMs = t,
                 teamIndex = teamIndex,
+                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
                 playerOff = offNumber,
                 playerOn = onNumber,
                 reason = reason
@@ -125,6 +127,7 @@ class MatchViewModel : ViewModel() {
             Discipline(
                 timeMs = t,
                 teamIndex = teamIndex,
+                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
                 player = playerNumber,
                 type = discType,
                 reason = reason

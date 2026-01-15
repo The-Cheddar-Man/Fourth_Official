@@ -2,7 +2,9 @@ package com.example.fourthofficial.ui
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -74,15 +76,35 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .padding(16.dp)
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
+        var halfIndex by rememberSaveable { mutableIntStateOf(1) }
+
         Text("Match Scores", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
-            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
-            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
+                    if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+                    else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+            }
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {halfIndex = switchHalf(halfIndex)}) { Text(
+                    if (halfIndex == 1) {"Half 1"}
+                    else {"Half 2"})}
+            }
+        }
 
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
         val events = vm.scoreEvents
-            .filter { it.teamIndex == teamIndex }
+            .filter { it.teamIndex == teamIndex && it.halfIndex == halfIndex }
             .sortedBy { it.timeMs }
 
         val columns = listOf(
@@ -111,15 +133,35 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
             .padding(16.dp)
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
+        var halfIndex by rememberSaveable { mutableIntStateOf(1) }
+
         Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) {Text(
-            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
-            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
+                    if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+                    else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+            }
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {halfIndex = switchHalf(halfIndex)}) { Text(
+                    if (halfIndex == 1) {"Half 1"}
+                    else {"Half 2"})}
+            }
+        }
 
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
         val events = vm.subEvents
-            .filter { it.teamIndex == teamIndex }
+            .filter { it.teamIndex == teamIndex && it.halfIndex == halfIndex}
             .sortedBy { it.timeMs }
 
         val columns = listOf(
@@ -151,14 +193,34 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             .padding(16.dp)
     ) {
         var teamIndex by rememberSaveable { mutableIntStateOf(1) }
+        var halfIndex by rememberSaveable { mutableIntStateOf(1) }
+
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
-            if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
-            else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {teamIndex = switchTeams(teamIndex)}) { Text(
+                    if (teamIndex == 1) (if(vm.team1.name!="") vm.team1.name else "Team ${vm.team1.index}")
+                    else (if(vm.team2.name!="") vm.team2.name else "Team ${vm.team2.index}"))}
+            }
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ){
+                Button(onClick = {halfIndex = switchHalf(halfIndex)}) { Text(
+                    if (halfIndex == 1) {"Half 1"}
+                    else {"Half 2"})}
+            }
+        }
         val team = if(teamIndex == 1) vm.team1 else vm.team2
 
         val events = vm.discEvents
-            .filter { it.teamIndex == teamIndex }
+            .filter { it.teamIndex == teamIndex && it.halfIndex == halfIndex}
             .sortedBy { it.timeMs }
 
         val columns = listOf(
@@ -198,6 +260,13 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
 private fun switchTeams(teamIndex: Int) : Int
 {
     if(teamIndex == 1)
+        return 2
+    return 1
+}
+
+private fun switchHalf(halfIndex: Int) : Int
+{
+    if(halfIndex == 1)
         return 2
     return 1
 }
