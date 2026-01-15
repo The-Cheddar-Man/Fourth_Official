@@ -50,6 +50,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
     var selectedNumber by remember { mutableStateOf<Int?>(null) }
     var selectedTeam by remember { mutableStateOf<Int?>(null) }
     var dialogStep by remember { mutableStateOf(DialogStep.NONE) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var showLogHalfDialog by remember { mutableStateOf(false) }
 
     val clearSelection = {
         selectedTeam = null
@@ -105,10 +107,14 @@ fun MatchScreen(modifier: Modifier = Modifier,
             Button(onClick = { vm.toggleClock() }, modifier = Modifier.weight(1f)) {
             Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
             }
-            Button(onClick = { vm.resetClock() }, modifier = Modifier.weight(1f)) {
-                Text( "Reset Clock")
+            Button(
+                onClick = { showResetDialog = true },
+                modifier = Modifier.weight(1f)) {
+                Text("Start New Match", textAlign = TextAlign.Center)
             }
-            Button(onClick = { vm.logHalf() }, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = { showLogHalfDialog = true },
+                modifier = Modifier.weight(1f)) {
                 Text( "Log Half")
             }
         }
@@ -121,7 +127,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents.filter { it.teamIndex == 1 }
+                    .sumOf { getScoreTypePoints(it.type) }.toString() )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
@@ -131,7 +138,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents.filter { it.teamIndex == 2 }
+                    .sumOf { getScoreTypePoints(it.type) }.toString() )
         }
 
         Row(
@@ -142,7 +150,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents.filter { it.teamIndex == 1 && it.halfIndex == 1 }
+                    .sumOf { getScoreTypePoints(it.type) }.toString() )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
@@ -152,7 +161,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "0" )
+                text = vm.scoreEvents.filter { it.teamIndex == 2 && it.halfIndex == 1 }
+                    .sumOf { getScoreTypePoints(it.type) }.toString() )
         }
 
         Row {
@@ -263,6 +273,61 @@ fun MatchScreen(modifier: Modifier = Modifier,
 
             DialogStep.NONE -> Unit
         }
+    }
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Start New Match") },
+            text = {
+                Text("Are you sure you want to start a new match?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.resetClock()
+                        vm.resetScores()
+                        vm.resetSubs()
+                        vm.resetDiscs()
+                        showResetDialog = false
+                    }
+                ) {
+                    Text("Yes, New Game")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showResetDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    if (showLogHalfDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogHalfDialog = false },
+            title = { Text("Log Half") },
+            text = {
+                Text("Are you sure you want to log the half?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        vm.logHalf()
+                        showLogHalfDialog = false
+                    }
+                ) {
+                    Text("Yes, Log")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showLogHalfDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -433,6 +498,14 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             }
         }
     }
+}
+
+private fun getScoreTypePoints(type: String): Int = when (type) {
+    "Try" -> 5
+    "Conversion" -> 2
+    "Penalty Kick" -> 3
+    "Drop Goal" -> 3
+    else -> 0
 }
 
 @SuppressLint("ViewModelConstructorInComposable")

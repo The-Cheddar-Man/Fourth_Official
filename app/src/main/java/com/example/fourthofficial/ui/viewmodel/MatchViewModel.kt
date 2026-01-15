@@ -144,6 +144,18 @@ class MatchViewModel : ViewModel() {
         clock = MatchClockState()
     }
 
+    fun resetScores() {
+        scoreEvents.clear()
+    }
+
+    fun resetSubs() {
+        subEvents.clear()
+    }
+
+    fun resetDiscs() {
+        discEvents.clear()
+    }
+
     private var startRealtimeMs: Long = 0L
     private var baseElapsedMs: Long = 0L
     private var tickerJob: Job? = null
