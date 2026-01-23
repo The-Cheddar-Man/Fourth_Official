@@ -20,7 +20,8 @@ data class TableColumn<T>(
 fun <T> DataTable(
     events: List<T>,
     columns: List<TableColumn<T>>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    keySelector: ((T) -> Any)? = null
 ) {
     LazyColumn(
         modifier = modifier
@@ -34,16 +35,27 @@ fun <T> DataTable(
             HorizontalDivider()
         }
 
-        items(
-            items = events,
-            key = { it.hashCode() }
-        ) { item ->
-            Row(Modifier.fillMaxWidth()) {
-                columns.forEach { col ->
-                    Text(col.value(item), modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (keySelector == null) {
+            items(events) { item ->
+                Row(Modifier.fillMaxWidth()) {
+                    columns.forEach { col ->
+                        Text(col.value(item), modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                HorizontalDivider()
             }
-            HorizontalDivider()
+        } else {
+            items(
+                items = events,
+                key = { keySelector.invoke(it) }
+            ) { item ->
+                Row(Modifier.fillMaxWidth()) {
+                    columns.forEach { col ->
+                        Text(col.value(item), modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                HorizontalDivider()
+            }
         }
     }
 }

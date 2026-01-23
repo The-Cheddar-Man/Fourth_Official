@@ -8,9 +8,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.model.DiscReason
+import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.Player
 import com.example.fourthofficial.model.Score
+import com.example.fourthofficial.model.ScoreType
+import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Substitution
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
@@ -32,6 +36,9 @@ class MatchViewModel : ViewModel() {
 
     var clock by mutableStateOf(MatchClockState())
         private set
+
+    private var nextEventId: Int = 1
+    private fun newID() = nextEventId++
 
     var scoreEvents = mutableStateListOf<Score>()
         private set
@@ -73,11 +80,12 @@ class MatchViewModel : ViewModel() {
     fun updateTeam1(updated: Team) { team1 = updated }
     fun updateTeam2(updated: Team) { team2 = updated }
 
-    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: String) {
+    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: ScoreType) {
         val t = halfElapsedMs
 
         scoreEvents.add(
             Score(
+                eventID = newID(),
                 timeMs = t,
                 teamIndex = teamIndex,
                 halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
@@ -87,22 +95,23 @@ class MatchViewModel : ViewModel() {
         )
     }
 
-    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: String) {
+    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType) {
         val t = halfElapsedMs
 
         subEvents.add(
             Substitution(
+                eventID = newID(),
                 timeMs = t,
                 teamIndex = teamIndex,
                 halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
                 playerOff = offNumber,
                 playerOn = onNumber,
-                reason = reason
+                type = reason
             )
         )
     }
 
-    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: String) {
+    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int, type: SubType) {
         val team = if (teamIndex == 1) team1 else team2
         val offPos = team.players.firstOrNull{it.number == offNumber} ?.fieldPos ?: return
 
@@ -117,20 +126,21 @@ class MatchViewModel : ViewModel() {
         val updatedTeam = team.copy(players = updatedPlayers)
         if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
 
-        recordSub(teamIndex, offNumber, onNumber, reason)
+        recordSub(teamIndex, offNumber, onNumber, type)
     }
 
-    fun recordDiscipline(teamIndex: Int, playerNumber: Int, discType: String, reason: String) {
+    fun recordDiscipline(teamIndex: Int, playerNumber: Int, type: DiscType, reason: DiscReason) {
         val t = halfElapsedMs
 
         discEvents.add(
             Discipline(
+                eventID = newID(),
                 timeMs = t,
                 teamIndex = teamIndex,
                 halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
                 player = playerNumber,
-                type = discType,
-                reason = reason
+                type = type,
+                reason = reason,
             )
         )
     }

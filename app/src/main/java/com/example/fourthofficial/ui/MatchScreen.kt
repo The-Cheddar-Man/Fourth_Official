@@ -6,11 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +16,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,34 +29,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.fourthofficial.model.DiscReason
+import com.example.fourthofficial.model.DiscReasonRed
+import com.example.fourthofficial.model.DiscReasonYellow
+import com.example.fourthofficial.model.DiscType
+import com.example.fourthofficial.model.GetScoreTypePoints
+import com.example.fourthofficial.model.Player
+import com.example.fourthofficial.model.ScoreType
+import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.ui.components.MatchScreenUiState
+import com.example.fourthofficial.ui.components.SingleChoiceDialog
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
-
-enum class DialogStep {
-    MAIN,
-    SCORE,
-    SUB,
-    DISC,
-    NONE
-}
 
 @Composable
 fun MatchScreen(modifier: Modifier = Modifier,
                 vm: MatchViewModel
 ) {
-    var selectedNumber by remember { mutableStateOf<Int?>(null) }
-    var selectedTeam by remember { mutableStateOf<Int?>(null) }
-    var dialogStep by remember { mutableStateOf(DialogStep.NONE) }
+    var uiState by remember { mutableStateOf<MatchScreenUiState>(MatchScreenUiState.None) }
+    val dismissDialogue = { uiState = MatchScreenUiState.None }
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogHalfDialog by remember { mutableStateOf(false) }
 
-    val clearSelection = {
-        selectedTeam = null
-        selectedNumber = null
-        dialogStep = DialogStep.NONE
+    val selectedTeam = { teamIndex: Int -> if (teamIndex == 1) vm.team1 else vm.team2 }
+    val selectedTeamName = { teamIndex: Int -> selectedTeam(teamIndex).name.ifBlank { "Team $teamIndex" } }
+    val selectedPlayer = { teamIndex: Int, playerNum: Int ->
+        selectedTeam(teamIndex).players[playerNum - 1].name.ifBlank { "(Unnamed)" }
     }
-
-    fun setDialogState(state:DialogStep) {dialogStep = state}
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -128,7 +124,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 1 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
@@ -139,7 +135,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 2 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
         }
 
         Row(
@@ -151,7 +147,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 1 && it.halfIndex == 1 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
@@ -162,7 +158,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 2 && it.halfIndex == 1 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
         }
 
         Row {
@@ -170,110 +166,137 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 team = vm.team1,
                 modifier = Modifier.weight(1f),
                 onPlayerTapped = { number ->
-                    selectedTeam = 1
-                    selectedNumber = number
-                    dialogStep = DialogStep.MAIN
+                    uiState = MatchScreenUiState.ActionMenu(1, number)
                 }
             )
             TeamColumn(
                 team = vm.team2,
                 modifier = Modifier.weight(1f),
                 onPlayerTapped = { number ->
-                    selectedTeam = 2
-                    selectedNumber = number
-                    dialogStep = DialogStep.MAIN
+                    uiState = MatchScreenUiState.ActionMenu(2, number)
                 }
             )
         }
     }
 
-    val teamIndex = selectedTeam
-    val offNumber = selectedNumber
+    when (val state = uiState) {
 
-    if (teamIndex != null && offNumber != null) {
-        val team = if (teamIndex == 1) vm.team1 else vm.team2
-        when (dialogStep) {
+        MatchScreenUiState.None -> Unit
 
-            DialogStep.MAIN -> {
-                Dialog(onDismissRequest = { setDialogState(DialogStep.NONE) })
-                {
-                    Surface(
+        is MatchScreenUiState.ActionMenu -> {
+            Dialog(onDismissRequest = dismissDialogue) {
+                Surface(
                     shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
                         .wrapContentWidth()
                         .wrapContentHeight()
                         .padding(24.dp),
-                )
-                {
-                    Column (
+                ) {
+                    Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(24.dp)
                     ) {
-                        Text("Select Action For ${team.players[offNumber-1].name}")
-                        Button(onClick = { setDialogState(DialogStep.SCORE) }) {
+                        Text("Select Action For ${selectedPlayer(state.teamIndex, state.playerNumber)}")
+
+                        Button(onClick = {
+                            uiState = MatchScreenUiState.ScorePick(state.teamIndex, state.playerNumber)
+                        }) {
                             Text("Score")
                         }
-                        Button(onClick = { setDialogState(DialogStep.SUB) }) {
+
+                        Button(onClick = {
+                            uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber)
+                        }) {
                             Text("Substitution")
                         }
-                        Button(onClick = { setDialogState(DialogStep.DISC) }) {
+
+                        Button(onClick = {
+                            uiState = MatchScreenUiState.DiscPickType(state.teamIndex, state.playerNumber)
+                        }) {
                             Text("Discipline")
                         }
                     }
                 }
             }
+        }
+
+        is MatchScreenUiState.ScorePick -> {
+            ScoreDialogue(
+                teamName = selectedTeamName(state.teamIndex),
+                playerName = selectedPlayer(state.teamIndex, state.playerNumber),
+                onConfirm = { scoreType ->
+                    vm.recordScore(state.teamIndex, state.playerNumber, scoreType)
+                    dismissDialogue()
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.SubPickOnPlayer -> {
+            SubstitutePlayerDialogue(
+                offNumber = state.offNumber,
+                potentialSubs = selectedTeam(state.teamIndex).players.filter { !it.isOnField },
+                onConfirm = { onNumber ->
+                    uiState = MatchScreenUiState.SubPickReason(
+                        teamIndex = state.teamIndex,
+                        offNumber = state.offNumber,
+                        onNumber = onNumber
+                    )
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.SubPickReason -> {
+            SubstituteReasonDialogue(
+                onConfirm = { subType ->
+                    vm.makeSub(state.teamIndex, state.offNumber, state.onNumber, subType)
+                    dismissDialogue()
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.DiscPickType -> {
+            DisciplineTypeDialogue(
+                playerName = selectedPlayer(state.teamIndex, state.playerNumber),
+                onConfirm = { discType ->
+                    uiState = MatchScreenUiState.DiscPickReason(
+                        teamIndex = state.teamIndex,
+                        playerNumber = state.playerNumber,
+                        type = discType
+                    )
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.DiscPickReason -> {
+            when (state.type) {
+                DiscType.YELLOW -> {
+                    DisciplineReasonYellowDialogue(
+                        onConfirm = { reason ->
+                            vm.recordDiscipline(state.teamIndex, state.playerNumber, state.type, reason)
+                            dismissDialogue()
+                        },
+                        onDismiss = dismissDialogue
+                    )
                 }
-
-            DialogStep.SCORE -> {
-                ScoreDialogue(
-                    vm = vm,
-                    teamIndex = teamIndex,
-                    playerNumber = offNumber,
-                    onConfirm = { scoreType ->
-                        vm.recordScore(teamIndex, offNumber, scoreType)
-                        clearSelection()
-                    },
-                    onDismiss = {
-                        clearSelection()
-                    }
-                )
+                DiscType.RED -> {
+                    DisciplineReasonRedDialogue(
+                        onConfirm = { reason ->
+                            vm.recordDiscipline(state.teamIndex, state.playerNumber, state.type, reason)
+                            dismissDialogue()
+                        },
+                        onDismiss = dismissDialogue
+                    )
+                }
             }
-
-            DialogStep.SUB -> {
-                SubDialogue(
-                    vm = vm,
-                    teamIndex = teamIndex,
-                    offNumber = offNumber,
-                    onConfirm = { onNumber ->
-                        vm.makeSub(teamIndex, offNumber, onNumber, "Unimplemented")
-                        clearSelection()
-                    },
-                    onDismiss = {
-                        clearSelection()
-                    }
-                )
-            }
-
-            DialogStep.DISC -> {
-                DisciplineDialogue(
-                    vm = vm,
-                    teamIndex = teamIndex,
-                    playerNumber = offNumber,
-                    onConfirm = { discType ->
-                        vm.recordDiscipline( teamIndex, offNumber, discType, "Unimplemented")
-                        clearSelection()
-                    },
-                    onDismiss = {
-                        clearSelection()
-                    }
-                )
-            }
-
-            DialogStep.NONE -> Unit
         }
     }
+
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -332,137 +355,120 @@ fun MatchScreen(modifier: Modifier = Modifier,
 }
 
 @Composable
-fun ScoreDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
-             onConfirm: (String) -> Unit, onDismiss: () -> Unit
+fun ScoreDialogue(teamName: String,
+    playerName: String,
+    onConfirm: (ScoreType) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    val scoreTypes = listOf("Try", "Conversion", "Penalty Kick", "Drop Goal")
-    val team = if (teamIndex == 1) vm.team1 else vm.team2
-    var chosenType by remember { mutableStateOf<String?>(null) }
+    var selected: ScoreType? by remember { mutableStateOf(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Scoring") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Player ${team.players[playerNumber - 1].name} Scored:")
-
-                scoreTypes.forEach { type ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { chosenType = type }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = (chosenType == type),
-                            onClick = { chosenType = type }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(type)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = chosenType != null,
-                onClick = { onConfirm(chosenType!!) }
-            ) { Text("Confirm") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+    SingleChoiceDialog(
+        title = "Scoring",
+        prompt = "$playerName ($teamName) scored:",
+        options = ScoreType.entries,
+        selected = selected,
+        optionLabel = { it.label },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it) },
+        onDismiss = onDismiss
     )
 }
 
 @Composable
-fun SubDialogue(vm: MatchViewModel, teamIndex: Int, offNumber: Int,
-             onConfirm: (Int) -> Unit, onDismiss: () -> Unit
+fun SubstitutePlayerDialogue(
+    offNumber: Int,
+    potentialSubs: List<Player>,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    var onNumber by remember { mutableStateOf<Int?>(null) }
-    val team = if (teamIndex == 1) vm.team1 else vm.team2
-    val bench = team.players.filter { !it.isOnField }
+    var selected: Player? by remember { mutableStateOf(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Substitution") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Sub off $offNumber for:")
-
-                bench.forEach { player ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onNumber = player.number }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = (onNumber == player.number),
-                            onClick = { onNumber = player.number }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("${player.number}. ${player.name.ifBlank { "(Unnamed)" }}")
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = onNumber != null,
-                onClick = { onConfirm(onNumber!!) }
-            ) { Text("Confirm") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+    SingleChoiceDialog(
+        title = "Substitution",
+        prompt = "Substitute $offNumber for:",
+        options = potentialSubs,
+        selected = selected,
+        optionLabel = { player -> "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}" },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it.number) },
+        onDismiss = onDismiss
     )
 }
 
 @Composable
-fun DisciplineDialogue(vm: MatchViewModel, teamIndex: Int, playerNumber: Int,
-                  onConfirm: (String) -> Unit, onDismiss: () -> Unit
+fun SubstituteReasonDialogue(
+    onConfirm: (SubType) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    val discTypes = listOf("Yellow Card", "Red Card")
-    val team = if (teamIndex == 1) vm.team1 else vm.team2
-    var chosenType by remember { mutableStateOf<String?>(null) }
+    var selected: SubType? by remember { mutableStateOf(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Scoring") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Player ${team.players[playerNumber - 1].name} Disciplined:")
+    SingleChoiceDialog(
+        title = "Substitution",
+        prompt = "Reason for substitution:",
+        options = SubType.entries,
+        selected = selected,
+        optionLabel = { it.label },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it) },
+        onDismiss = onDismiss
+    )
+}
 
-                discTypes.forEach { type ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { chosenType = type }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = (chosenType == type),
-                            onClick = { chosenType = type }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(type)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = chosenType != null,
-                onClick = { onConfirm(chosenType!!) }
-            ) { Text("Confirm") }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        }
+@Composable
+fun DisciplineTypeDialogue(
+    playerName: String,
+    onConfirm: (DiscType) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected: DiscType? by remember { mutableStateOf(null) }
+
+    SingleChoiceDialog(
+        title = "Discipline",
+        prompt = "Card for $playerName:",
+        options = DiscType.entries,
+        selected = selected,
+        optionLabel = { it.label },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it) },
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun DisciplineReasonYellowDialogue(
+    onConfirm: (DiscReason) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected: DiscReason? by remember { mutableStateOf(null) }
+
+    SingleChoiceDialog(
+        title = "Discipline",
+        prompt = "Discipline reason:",
+        options = DiscReasonYellow.entries,
+        selected = selected,
+        optionLabel = { it.label },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it) },
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun DisciplineReasonRedDialogue(
+    onConfirm: (DiscReason) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected: DiscReason? by remember { mutableStateOf(null) }
+
+    SingleChoiceDialog(
+        title = "Discipline",
+        prompt = "Discipline reason:",
+        options = DiscReasonRed.entries,
+        selected = selected,
+        optionLabel = { it.label },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it) },
+        onDismiss = onDismiss
     )
 }
 
@@ -498,14 +504,6 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             }
         }
     }
-}
-
-private fun getScoreTypePoints(type: String): Int = when (type) {
-    "Try" -> 5
-    "Conversion" -> 2
-    "Penalty Kick" -> 3
-    "Drop Goal" -> 3
-    else -> 0
 }
 
 @SuppressLint("ViewModelConstructorInComposable")

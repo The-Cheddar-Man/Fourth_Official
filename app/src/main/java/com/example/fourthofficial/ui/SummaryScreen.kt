@@ -109,7 +109,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
-                e.type
+                e.type.label
             },
             TableColumn(header = "Player", weight = 1.5f) { e ->
                 "${e.player}. ${team.players[e.player-1].name}"
@@ -119,7 +119,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.eventID })
     }
 }
 
@@ -169,7 +169,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
                 "${e.playerOff}. ${team.players[e.playerOff-1].name}"
             },
             TableColumn(header = "Reason", weight = 1.5f) { e ->
-                e.reason
+                e.type.label
             },
             TableColumn(header = "On", weight = 1.5f) { e ->
                 "${e.playerOn}. ${team.players[e.playerOn-1].name}"
@@ -179,7 +179,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel) 
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.eventID })
     }
 }
 
@@ -225,10 +225,10 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
-                e.type
+                e.type.label
             },
             TableColumn(header = "Reason", weight = 1.5f) { e ->
-                e.reason
+                e.reason.label
             },
             TableColumn(header = "Player", weight = 1.5f) { e ->
                 "${e.player}. ${team.players[e.player-1].name}"
@@ -238,7 +238,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f))
+        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.eventID })
     }
 }
 
