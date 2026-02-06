@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -165,6 +166,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
             TeamColumn(
                 team = vm.team1,
                 modifier = Modifier.weight(1f),
+                vm = vm,
+                isYellowActive = { vm.isYellowActive(it) },
+                isRedActive = { vm.isRedActive(it) },
+                yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
                 onPlayerTapped = { number ->
                     uiState = MatchScreenUiState.ActionMenu(1, number)
                 }
@@ -172,6 +177,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
             TeamColumn(
                 team = vm.team2,
                 modifier = Modifier.weight(1f),
+                vm = vm,
+                isYellowActive = { vm.isYellowActive(it) },
+                isRedActive = { vm.isRedActive(it) },
+                yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
                 onPlayerTapped = { number ->
                     uiState = MatchScreenUiState.ActionMenu(2, number)
                 }
@@ -200,21 +209,21 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     ) {
                         Text("Select Action For ${selectedPlayer(state.teamIndex, state.playerNumber)}")
 
-                        Button(onClick = {
-                            uiState = MatchScreenUiState.ScorePick(state.teamIndex, state.playerNumber)
-                        }) {
+                        Button(
+                            onClick = { uiState = MatchScreenUiState.ScorePick(state.teamIndex, state.playerNumber) }
+                        ) {
                             Text("Score")
                         }
 
-                        Button(onClick = {
-                            uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber)
-                        }) {
+                        Button(
+                            onClick = { uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber) }
+                        ) {
                             Text("Substitution")
                         }
 
-                        Button(onClick = {
-                            uiState = MatchScreenUiState.DiscPickType(state.teamIndex, state.playerNumber)
-                        }) {
+                        Button(
+                            onClick = { uiState = MatchScreenUiState.DiscPickType(state.teamIndex, state.playerNumber) }
+                        ) {
                             Text("Discipline")
                         }
                     }
@@ -327,18 +336,20 @@ fun MatchScreen(modifier: Modifier = Modifier,
         )
     }
     if (showLogHalfDialog) {
+        val canLogHalf = (vm.clock.elapsedMs >= 40L * 60L * 1000L) && (vm.halfTimeMs.longValue == 0L)
         AlertDialog(
             onDismissRequest = { showLogHalfDialog = false },
             title = { Text("Log Half") },
             text = {
-                Text("Are you sure you want to log the half?")
+                Text(if (canLogHalf) "Log Half?" else "It is not half time!")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         vm.logHalf()
                         showLogHalfDialog = false
-                    }
+                    },
+                    enabled = canLogHalf
                 ) {
                     Text("Yes, Log")
                 }
@@ -473,7 +484,17 @@ fun DisciplineReasonRedDialogue(
 }
 
 @Composable
-fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) -> Unit) {
+private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when
+{
+    redActive -> Color(0xFFE74751)
+    yellowActive -> Color(0xFFFFB834)
+    else -> MaterialTheme.colorScheme.surface
+}
+
+@Composable
+fun TeamColumn(team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
+               isYellowActive: (Player) -> Boolean, isRedActive: (Player) -> Boolean,
+               yellowLabel: (Player) -> String, onPlayerTapped: (Int) -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(5.dp))
@@ -485,8 +506,7 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
         LazyColumn {
             item{
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(team.name.ifBlank { "Team ${team.index}" }, textAlign = TextAlign.Center)
@@ -494,13 +514,33 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, onPlayerTapped: (Int) 
             }
             items(onField.size) { i ->
                 val player = onField[i]
-                Text(
-                    text = "${player.number}. ${player.name}",
+                val locked = isYellowActive(player) || isRedActive(player) || !vm.isClockRunning()
+                Surface(
+                    color = playerTileColor(isYellowActive(player), isRedActive(player)),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onPlayerTapped(player.number) }
-                        .padding(4.dp)
+                        .padding(vertical = 2.dp)
+                        .then(
+                            if (!locked) Modifier.clickable { onPlayerTapped(player.number) }
+                            else Modifier
+                        )
                 )
+                {
+                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                    {
+                        Text("${player.number}. ${player.name}")
+
+                        if (isYellowActive(player))
+                        {
+                            Text("Yellow: ${yellowLabel(player)}")
+                        }
+                        if (isRedActive(player))
+                        {
+                            Text("Red")
+                        }
+                    }
+                }
             }
         }
     }

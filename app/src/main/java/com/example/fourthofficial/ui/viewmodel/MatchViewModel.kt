@@ -132,6 +132,16 @@ class MatchViewModel : ViewModel() {
     fun recordDiscipline(teamIndex: Int, playerNumber: Int, type: DiscType, reason: DiscReason) {
         val t = halfElapsedMs
 
+        val finalType =
+            if (type == DiscType.YELLOW && discEvents.any { event ->
+                event.teamIndex == teamIndex &&
+                event.player == playerNumber &&
+                event.type == DiscType.YELLOW })
+            {
+                DiscType.RED
+            }
+            else type
+
         discEvents.add(
             Discipline(
                 eventID = newID(),
@@ -143,9 +153,16 @@ class MatchViewModel : ViewModel() {
                 reason = reason,
             )
         )
+
+        if (finalType == DiscType.YELLOW)
+            applyYellow(teamIndex, playerNumber)
+        else
+            applyRed(teamIndex, playerNumber)
     }
 
     fun logHalf() {
+        if (clock.elapsedMs < halfDurationMs) return
+
         halfTimeMs.longValue = halfElapsedMs
         matchOffsetMs = halfDurationMs
         tickerJob?.cancel()
@@ -164,6 +181,55 @@ class MatchViewModel : ViewModel() {
 
     fun resetDiscs() {
         discEvents.clear()
+        clearAllCards()
+    }
+
+    private val yellowDurationMs = 10L * 60L * 1000L
+
+    fun yellowRemainingMs(player: Player): Long {
+        val until = player.yellowUntilHalfMs ?: return 0L
+        return (until - halfElapsedMs).coerceAtLeast(0L)
+    }
+
+    private fun applyYellow(teamIndex: Int, playerNumber: Int) {
+        val team = if (teamIndex == 1) team1 else team2
+        val until = halfElapsedMs + yellowDurationMs
+
+        val updatedPlayers = team.players.map { player ->
+            if (player.number == playerNumber) player.copy(yellowUntilHalfMs = until) else player
+        }
+        val updatedTeam = team.copy(players = updatedPlayers)
+        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+    }
+
+    private fun applyRed(teamIndex: Int, playerNumber: Int) {
+        val team = if (teamIndex == 1) team1 else team2
+
+        val updatedPlayers = team.players.map { player ->
+            if (player.number == playerNumber) {
+                player.copy(
+                    isRedCarded = true,
+                    yellowUntilHalfMs = null,
+                )
+            } else player
+        }
+
+        val updatedTeam = team.copy(players = updatedPlayers)
+        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+    }
+
+    fun isYellowActive(player: Player): Boolean {
+        val until = player.yellowUntilHalfMs ?: return false
+        return halfElapsedMs < until
+    }
+
+    fun isRedActive(player: Player):Boolean {
+        return player.isRedCarded
+    }
+
+    private fun clearAllCards() {
+        team1 = team1.copy(players = team1.players.map { it.copy(yellowUntilHalfMs = null, isRedCarded = false) })
+        team2 = team2.copy(players = team2.players.map { it.copy(yellowUntilHalfMs = null, isRedCarded = false) })
     }
 
     private var startRealtimeMs: Long = 0L
@@ -187,7 +253,7 @@ class MatchViewModel : ViewModel() {
                 val now = SystemClock.elapsedRealtime()
                 val runningMs = now - startRealtimeMs
                 clock = clock.copy(elapsedMs = baseElapsedMs + runningMs)
-                delay(200)
+                delay(100)
             }
         }
     }
@@ -205,6 +271,12 @@ class MatchViewModel : ViewModel() {
             isRunning = false,
             elapsedMs = baseElapsedMs + runningMs
         )
+    }
+
+    fun isClockRunning(): Boolean {
+        if(clock.isRunning)
+            return true
+        return false
     }
 
     fun resetClock() {
