@@ -35,12 +35,14 @@ import com.example.fourthofficial.model.DiscReasonRed
 import com.example.fourthofficial.model.DiscReasonYellow
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.GetScoreTypePoints
+import com.example.fourthofficial.model.PendingSub
 import com.example.fourthofficial.model.Player
 import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Team
 import com.example.fourthofficial.ui.components.MatchScreenUiState
 import com.example.fourthofficial.ui.components.SingleChoiceDialog
+import com.example.fourthofficial.ui.components.SubBatchReviewDialog
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
@@ -216,7 +218,10 @@ fun MatchScreen(modifier: Modifier = Modifier,
                         }
 
                         Button(
-                            onClick = { uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber) }
+                            onClick = {
+                                vm.startSubBatch(state.teamIndex)
+                                uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber)
+                            }
                         ) {
                             Text("Substitution")
                         }
@@ -244,7 +249,7 @@ fun MatchScreen(modifier: Modifier = Modifier,
         }
 
         is MatchScreenUiState.SubPickOnPlayer -> {
-            SubstitutePlayerDialogue(
+            SubstitutePlayerOnDialogue(
                 offNumber = state.offNumber,
                 potentialSubs = selectedTeam(state.teamIndex).players.filter { !it.isOnField },
                 onConfirm = { onNumber ->
@@ -261,11 +266,51 @@ fun MatchScreen(modifier: Modifier = Modifier,
         is MatchScreenUiState.SubPickReason -> {
             SubstituteReasonDialogue(
                 onConfirm = { subType ->
-                    vm.makeSub(state.teamIndex, state.offNumber, state.onNumber, subType)
-                    dismissDialogue()
+                    vm.addPendingSub(state.offNumber, state.onNumber, subType)
+                    uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
                 },
                 onDismiss = dismissDialogue
             )
+        }
+
+        is MatchScreenUiState.SubBatchReview -> {
+            SubstituteSummaryDialogue(
+                subs = vm.getSubBatchPlayers(),
+                onConfirm = {
+                    vm.applySubBatch()
+                    dismissDialogue()
+                },
+                onCancel = {
+                    vm.cancelSubBatch()
+                    dismissDialogue()
+                },
+                onAddAnother = {
+                    uiState = MatchScreenUiState.SubPickOffPlayer(state.teamIndex)
+                },
+                onRemove = { offNumber ->
+                    vm.removePendingSub(offNumber)
+                },
+                labelForSub = { sub ->
+                    "${sub.playerOff} → ${sub.playerOn} (${sub.type.label})"
+                }
+            )
+        }
+
+        is MatchScreenUiState.SubPickOffPlayer -> {
+            Dialog(onDismissRequest = dismissDialogue) {
+                TeamColumn(
+                    team = selectedTeam(state.teamIndex),
+                    vm = vm,
+                    isYellowActive = { vm.isYellowActive(it) },
+                    isRedActive = { vm.isRedActive(it) },
+                    yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
+                    onPlayerTapped = { number ->
+                        if(vm.getSubBatchPlayers().find{it.playerOff == number} == null
+                            && selectedTeam(state.teamIndex).players.find { it.isOnField } != null)
+                            uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, number)
+                    }
+                )
+            }
         }
 
         is MatchScreenUiState.DiscPickType -> {
@@ -386,7 +431,7 @@ fun ScoreDialogue(teamName: String,
 }
 
 @Composable
-fun SubstitutePlayerDialogue(
+fun SubstitutePlayerOnDialogue(
     offNumber: Int,
     potentialSubs: List<Player>,
     onConfirm: (Int) -> Unit,
@@ -423,6 +468,20 @@ fun SubstituteReasonDialogue(
         onConfirm = { onConfirm(it) },
         onDismiss = onDismiss
     )
+}
+
+@Composable
+fun SubstituteSummaryDialogue(
+    subs: List<PendingSub>,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    onAddAnother: () -> Unit,
+    onRemove: (Int) -> Unit,
+    labelForSub: (PendingSub) -> String
+) {
+    var selected: PendingSub? by remember { mutableStateOf(null) }
+
+    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother,onConfirm,onCancel)
 }
 
 @Composable

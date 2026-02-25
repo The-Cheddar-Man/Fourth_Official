@@ -16,6 +16,8 @@ import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Substitution
+import com.example.fourthofficial.model.PendingSub
+import com.example.fourthofficial.model.SubBatchState
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -44,6 +46,9 @@ class MatchViewModel : ViewModel() {
         private set
 
     var subEvents = mutableStateListOf<Substitution>()
+        private set
+
+    var subBatch by mutableStateOf<SubBatchState?>(null)
         private set
 
     var discEvents = mutableStateListOf<Discipline>()
@@ -95,15 +100,13 @@ class MatchViewModel : ViewModel() {
         )
     }
 
-    fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType) {
-        val t = halfElapsedMs
-
+    private fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType, time: Long, halfIndex: Int) {
         subEvents.add(
             Substitution(
                 eventID = newID(),
-                timeMs = t,
+                timeMs = time,
                 teamIndex = teamIndex,
-                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
+                halfIndex = halfIndex,
                 playerOff = offNumber,
                 playerOn = onNumber,
                 type = reason
@@ -111,22 +114,76 @@ class MatchViewModel : ViewModel() {
         )
     }
 
-    fun makeSub(teamIndex: Int, offNumber: Int, onNumber: Int, type: SubType) {
-        val team = if (teamIndex == 1) team1 else team2
-        val offPos = team.players.firstOrNull{it.number == offNumber} ?.fieldPos ?: return
+    fun startSubBatch(teamIndex: Int) {
+        if (subBatch!=null)
+            return
+
+        subBatch = SubBatchState(
+            teamIndex = teamIndex,
+            timeMs = halfElapsedMs,
+            halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2
+        )
+    }
+
+    fun applySubBatch() {
+        val batch = subBatch ?: return
+
+        val team = if (batch.teamIndex == 1) team1 else team2
+        val playersOff = batch.pendingSubs.map { it.playerOff }.toSet()
+        val playersOn = batch.pendingSubs.map { it.playerOn }.toSet()
+
+        val playerByNumber = team.players.associateBy { it.number }
+        val offPositions = batch.pendingSubs.associate { sub ->
+            sub.playerOff to playerByNumber[sub.playerOff]?.fieldPos
+        }
+        val onPositions = batch.pendingSubs.associate { it.playerOn to it.playerOff }
+
+        if (playersOff.any { offPositions[it] == null }) return
+        if (playersOn.any { onPositions[it] == null }) return
 
         val updatedPlayers = team.players.map { p ->
-            when (p.number) {
-                offNumber -> p.copy(isOnField = false, fieldPos = null)
-                onNumber  -> p.copy(isOnField = true, fieldPos = offPos)
-                else      -> p
+            when {
+                playersOff.contains(p.number) -> p.copy(isOnField = false, fieldPos = null)
+                playersOn.contains(p.number) -> {
+                    val offNumber = onPositions[p.number]!!
+                    val pos = offPositions[offNumber]!!
+                    p.copy(isOnField = true, fieldPos = pos)
+                }
+                else -> p
             }
         }
 
         val updatedTeam = team.copy(players = updatedPlayers)
-        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+        if (batch.teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
 
-        recordSub(teamIndex, offNumber, onNumber, type)
+        for (sub in batch.pendingSubs) {
+            recordSub(batch.teamIndex,sub.playerOff, sub.playerOn,
+                        sub.type, batch.timeMs, batch.halfIndex)
+        }
+        subBatch = null
+    }
+
+    fun addPendingSub(playerOff: Int, playerOn: Int, type: SubType) {
+        val batch = subBatch ?: return
+        if (playerOff == playerOn) return
+        if (batch.pendingSubs.find{ it.playerOff == playerOff } != null) return
+        if (batch.pendingSubs.find{ it.playerOn == playerOn } != null) return
+        subBatch = batch.copy(pendingSubs = batch.pendingSubs + PendingSub(playerOff, playerOn, type))
+    }
+
+    fun removePendingSub(playerOff: Int) {
+        val batch = subBatch ?: return
+        val newPendingSubs = batch.pendingSubs.filterNot { it.playerOff == playerOff }
+        subBatch = batch.copy(pendingSubs = newPendingSubs)
+        if (newPendingSubs.isEmpty()) subBatch = null
+    }
+
+    fun getSubBatchPlayers(): List<PendingSub> {
+        return subBatch?.pendingSubs ?: emptyList()
+    }
+
+    fun cancelSubBatch() {
+        subBatch = null
     }
 
     fun recordDiscipline(teamIndex: Int, playerNumber: Int, type: DiscType, reason: DiscReason) {
@@ -177,6 +234,7 @@ class MatchViewModel : ViewModel() {
 
     fun resetSubs() {
         subEvents.clear()
+        subBatch = null
     }
 
     fun resetDiscs() {
