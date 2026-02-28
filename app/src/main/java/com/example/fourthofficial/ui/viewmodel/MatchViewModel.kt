@@ -11,21 +11,20 @@ import androidx.lifecycle.viewModelScope
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
+import com.example.fourthofficial.model.PendingSub
 import com.example.fourthofficial.model.Player
 import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.ScoreType
+import com.example.fourthofficial.model.SubBatchState
 import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Substitution
-import com.example.fourthofficial.model.PendingSub
-import com.example.fourthofficial.model.SubBatchState
 import com.example.fourthofficial.model.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class MatchClockState(
-    val isRunning: Boolean = false,
-    val elapsedMs: Long = 0L
+    val isRunning: Boolean = false, val elapsedMs: Long = 0L
 )
 
 class MatchViewModel : ViewModel() {
@@ -65,25 +64,23 @@ class MatchViewModel : ViewModel() {
         get() = matchOffsetMs + clock.elapsedMs
 
     val halfRemainingMs: Long
-        get() = (halfDurationMs - clock.elapsedMs )
+        get() = (halfDurationMs - clock.elapsedMs)
 
-    fun defaultTeam(index: Int): Team =
-        Team(
-            name = "",
-            index = index,
-            List(23) { i ->
-                val num = i + 1
-                Player(
-                    number = num,
-                    name = "",
-                    isOnField = i < 15,
-                    fieldPos = if (i < 15) num else null
-                )
-            }
-        )
+    fun defaultTeam(index: Int): Team = Team(
+        name = "", index = index, List(23) { i ->
+            val num = i + 1
+            Player(
+                number = num, name = "", isOnField = i < 15, fieldPos = if (i < 15) num else null
+            )
+        })
 
-    fun updateTeam1(updated: Team) { team1 = updated }
-    fun updateTeam2(updated: Team) { team2 = updated }
+    fun updateTeam1(updated: Team) {
+        team1 = updated
+    }
+
+    fun updateTeam2(updated: Team) {
+        team2 = updated
+    }
 
     fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: ScoreType) {
         val t = halfElapsedMs
@@ -93,14 +90,16 @@ class MatchViewModel : ViewModel() {
                 eventID = newID(),
                 timeMs = t,
                 teamIndex = teamIndex,
-                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
+                halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
                 player = playerNumber,
                 type = scoreType
             )
         )
     }
 
-    private fun recordSub(teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType, time: Long, halfIndex: Int) {
+    private fun recordSub(
+        teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType, time: Long, halfIndex: Int
+    ) {
         subEvents.add(
             Substitution(
                 eventID = newID(),
@@ -115,8 +114,11 @@ class MatchViewModel : ViewModel() {
     }
 
     fun startSubBatch(teamIndex: Int) {
-        if (subBatch!=null)
-            return
+        val batch = subBatch
+        if (batch != null) {
+            if (batch.teamIndex == teamIndex) return
+            subBatch = null
+        }
 
         subBatch = SubBatchState(
             teamIndex = teamIndex,
@@ -149,6 +151,7 @@ class MatchViewModel : ViewModel() {
                     val pos = offPositions[offNumber]!!
                     p.copy(isOnField = true, fieldPos = pos)
                 }
+
                 else -> p
             }
         }
@@ -157,8 +160,14 @@ class MatchViewModel : ViewModel() {
         if (batch.teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
 
         for (sub in batch.pendingSubs) {
-            recordSub(batch.teamIndex,sub.playerOff, sub.playerOn,
-                        sub.type, batch.timeMs, batch.halfIndex)
+            recordSub(
+                batch.teamIndex,
+                sub.playerOff,
+                sub.playerOn,
+                sub.type,
+                batch.timeMs,
+                batch.halfIndex
+            )
         }
         subBatch = null
     }
@@ -166,9 +175,10 @@ class MatchViewModel : ViewModel() {
     fun addPendingSub(playerOff: Int, playerOn: Int, type: SubType) {
         val batch = subBatch ?: return
         if (playerOff == playerOn) return
-        if (batch.pendingSubs.find{ it.playerOff == playerOff } != null) return
-        if (batch.pendingSubs.find{ it.playerOn == playerOn } != null) return
-        subBatch = batch.copy(pendingSubs = batch.pendingSubs + PendingSub(playerOff, playerOn, type))
+        if (batch.pendingSubs.find { it.playerOff == playerOff } != null) return
+        if (batch.pendingSubs.find { it.playerOn == playerOn } != null) return
+        subBatch =
+            batch.copy(pendingSubs = batch.pendingSubs + PendingSub(playerOff, playerOn, type))
     }
 
     fun removePendingSub(playerOff: Int) {
@@ -189,32 +199,26 @@ class MatchViewModel : ViewModel() {
     fun recordDiscipline(teamIndex: Int, playerNumber: Int, type: DiscType, reason: DiscReason) {
         val t = halfElapsedMs
 
-        val finalType =
-            if (type == DiscType.YELLOW && discEvents.any { event ->
-                event.teamIndex == teamIndex &&
-                event.player == playerNumber &&
-                event.type == DiscType.YELLOW })
-            {
-                DiscType.RED
-            }
-            else type
+        val finalType = if (type == DiscType.YELLOW && discEvents.any { event ->
+                event.teamIndex == teamIndex && event.player == playerNumber && event.type == DiscType.YELLOW
+            }) {
+            DiscType.RED
+        } else type
 
         discEvents.add(
             Discipline(
                 eventID = newID(),
                 timeMs = t,
                 teamIndex = teamIndex,
-                halfIndex = if(halfTimeMs.longValue == 0L) 1 else 2,
+                halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
                 player = playerNumber,
-                type = type,
+                type = finalType,
                 reason = reason,
             )
         )
 
-        if (finalType == DiscType.YELLOW)
-            applyYellow(teamIndex, playerNumber)
-        else
-            applyRed(teamIndex, playerNumber)
+        if (finalType == DiscType.YELLOW) applyYellow(teamIndex, playerNumber)
+        else applyRed(teamIndex, playerNumber)
     }
 
     fun logHalf() {
@@ -281,13 +285,21 @@ class MatchViewModel : ViewModel() {
         return halfElapsedMs < until
     }
 
-    fun isRedActive(player: Player):Boolean {
+    fun isRedActive(player: Player): Boolean {
         return player.isRedCarded
     }
 
     private fun clearAllCards() {
-        team1 = team1.copy(players = team1.players.map { it.copy(yellowUntilHalfMs = null, isRedCarded = false) })
-        team2 = team2.copy(players = team2.players.map { it.copy(yellowUntilHalfMs = null, isRedCarded = false) })
+        team1 = team1.copy(players = team1.players.map {
+            it.copy(
+                yellowUntilHalfMs = null, isRedCarded = false
+            )
+        })
+        team2 = team2.copy(players = team2.players.map {
+            it.copy(
+                yellowUntilHalfMs = null, isRedCarded = false
+            )
+        })
     }
 
     private var startRealtimeMs: Long = 0L
@@ -326,15 +338,12 @@ class MatchViewModel : ViewModel() {
         tickerJob = null
 
         clock = MatchClockState(
-            isRunning = false,
-            elapsedMs = baseElapsedMs + runningMs
+            isRunning = false, elapsedMs = baseElapsedMs + runningMs
         )
     }
 
     fun isClockRunning(): Boolean {
-        if(clock.isRunning)
-            return true
-        return false
+        return clock.isRunning
     }
 
     fun resetClock() {
@@ -343,13 +352,13 @@ class MatchViewModel : ViewModel() {
         baseElapsedMs = 0L
         clock = MatchClockState()
         matchOffsetMs = 0L
+        halfTimeMs.longValue = 0L
     }
 
     fun formatClock(ms: Long, remaining: Boolean): String {
         val remainingMs = 999 + ms
         var totalSeconds = ms / 1000
-        if(remaining)
-        {
+        if (remaining) {
             totalSeconds = remainingMs / 1000
         }
         val minutes = totalSeconds / 60

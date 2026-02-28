@@ -24,8 +24,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,8 +46,9 @@ import com.example.fourthofficial.ui.components.SubBatchReviewDialog
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
-fun MatchScreen(modifier: Modifier = Modifier,
-                vm: MatchViewModel
+fun MatchScreen(
+    modifier: Modifier = Modifier,
+    vm: MatchViewModel
 ) {
     var uiState by remember { mutableStateOf<MatchScreenUiState>(MatchScreenUiState.None) }
     val dismissDialogue = { uiState = MatchScreenUiState.None }
@@ -55,9 +56,11 @@ fun MatchScreen(modifier: Modifier = Modifier,
     var showLogHalfDialog by remember { mutableStateOf(false) }
 
     val selectedTeam = { teamIndex: Int -> if (teamIndex == 1) vm.team1 else vm.team2 }
-    val selectedTeamName = { teamIndex: Int -> selectedTeam(teamIndex).name.ifBlank { "Team $teamIndex" } }
+    val selectedTeamName =
+        { teamIndex: Int -> selectedTeam(teamIndex).name.ifBlank { "Team $teamIndex" } }
     val selectedPlayer = { teamIndex: Int, playerNum: Int ->
-        selectedTeam(teamIndex).players[playerNum - 1].name.ifBlank { "(Unnamed)" }
+        selectedTeam(teamIndex).players.find { it.number == playerNum }?.name?.ifBlank { "(Unnamed)" }
+            ?: "(Unnamed)"
     }
 
     Column(
@@ -104,17 +107,19 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 .fillMaxWidth()
         ) {
             Button(onClick = { vm.toggleClock() }, modifier = Modifier.weight(1f)) {
-            Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
+                Text(if (vm.clock.isRunning) "Stop clock" else "Start clock")
             }
             Button(
                 onClick = { showResetDialog = true },
-                modifier = Modifier.weight(1f)) {
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Start New Match", textAlign = TextAlign.Center)
             }
             Button(
                 onClick = { showLogHalfDialog = true },
-                modifier = Modifier.weight(1f)) {
-                Text( "Log Half")
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Log Half")
             }
         }
 
@@ -127,18 +132,21 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 1 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+            )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "Score" )
+                text = "Score"
+            )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 2 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+            )
         }
 
         Row(
@@ -150,18 +158,21 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 1 && it.halfIndex == 1 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+            )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = "Score (HT)" )
+                text = "Score (HT)"
+            )
             Text(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamIndex == 2 && it.halfIndex == 1 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString() )
+                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+            )
         }
 
         Row {
@@ -209,25 +220,53 @@ fun MatchScreen(modifier: Modifier = Modifier,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(24.dp)
                     ) {
-                        Text("Select Action For ${selectedPlayer(state.teamIndex, state.playerNumber)}")
+                        Text(
+                            "Select Action For ${
+                                selectedPlayer(
+                                    state.teamIndex,
+                                    state.playerNumber
+                                )
+                            }"
+                        )
 
                         Button(
-                            onClick = { uiState = MatchScreenUiState.ScorePick(state.teamIndex, state.playerNumber) }
+                            onClick = {
+                                uiState = MatchScreenUiState.ScorePick(
+                                    state.teamIndex,
+                                    state.playerNumber
+                                )
+                            }
                         ) {
                             Text("Score")
                         }
 
                         Button(
                             onClick = {
-                                vm.startSubBatch(state.teamIndex)
-                                uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, state.playerNumber)
+                                val subs = vm.getSubBatchPlayers()
+                                val usedOn = subs.map { it.playerOn }.toSet()
+                                val eligibleOn =
+                                    selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
+                                if (eligibleOn.isEmpty())
+                                    uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                                else {
+                                    vm.startSubBatch(state.teamIndex)
+                                    uiState = MatchScreenUiState.SubPickOnPlayer(
+                                        state.teamIndex,
+                                        state.playerNumber
+                                    )
+                                }
                             }
                         ) {
                             Text("Substitution")
                         }
 
                         Button(
-                            onClick = { uiState = MatchScreenUiState.DiscPickType(state.teamIndex, state.playerNumber) }
+                            onClick = {
+                                uiState = MatchScreenUiState.DiscPickType(
+                                    state.teamIndex,
+                                    state.playerNumber
+                                )
+                            }
                         ) {
                             Text("Discipline")
                         }
@@ -249,18 +288,45 @@ fun MatchScreen(modifier: Modifier = Modifier,
         }
 
         is MatchScreenUiState.SubPickOnPlayer -> {
-            SubstitutePlayerOnDialogue(
-                offNumber = state.offNumber,
-                potentialSubs = selectedTeam(state.teamIndex).players.filter { !it.isOnField },
-                onConfirm = { onNumber ->
-                    uiState = MatchScreenUiState.SubPickReason(
-                        teamIndex = state.teamIndex,
-                        offNumber = state.offNumber,
-                        onNumber = onNumber
-                    )
-                },
-                onDismiss = dismissDialogue
-            )
+            val subs = vm.getSubBatchPlayers()
+            val usedOn = subs.map { it.playerOn }.toSet()
+            val eligibleOn =
+                selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
+            if (eligibleOn.isEmpty()) {
+                AlertDialog(
+                    onDismissRequest = {
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                    },
+                    title = { Text("Substitutions") },
+                    text = {
+                        Text("No players available for substitution.")
+                    },
+                    confirmButton = {
+                        OutlinedButton(onClick = {
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        }) { Text("Ok") }
+                    },
+                    dismissButton = {}
+                )
+            } else {
+                SubstitutePlayerOnDialogue(
+                    offNumber = state.offNumber,
+                    potentialSubs = eligibleOn,
+                    onConfirm = { onNumber ->
+                        uiState = MatchScreenUiState.SubPickReason(
+                            teamIndex = state.teamIndex,
+                            offNumber = state.offNumber,
+                            onNumber = onNumber
+                        )
+                    },
+                    onDismiss = {
+                        if (subs.size > 0)
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        else
+                            dismissDialogue()
+                    }
+                )
+            }
         }
 
         is MatchScreenUiState.SubPickReason -> {
@@ -269,11 +335,20 @@ fun MatchScreen(modifier: Modifier = Modifier,
                     vm.addPendingSub(state.offNumber, state.onNumber, subType)
                     uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
                 },
-                onDismiss = dismissDialogue
+                onDismiss = {
+                    if (vm.getSubBatchPlayers().size > 0)
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                    else
+                        dismissDialogue()
+                }
             )
         }
 
         is MatchScreenUiState.SubBatchReview -> {
+            val subs = vm.getSubBatchPlayers()
+            val usedOn = subs.map { it.playerOn }.toSet()
+            val eligibleOn =
+                selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
             SubstituteSummaryDialogue(
                 subs = vm.getSubBatchPlayers(),
                 onConfirm = {
@@ -292,23 +367,39 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 },
                 labelForSub = { sub ->
                     "${sub.playerOff} → ${sub.playerOn} (${sub.type.label})"
-                }
+                },
+                eligibleOn = eligibleOn.isNotEmpty()
             )
         }
 
         is MatchScreenUiState.SubPickOffPlayer -> {
-            Dialog(onDismissRequest = dismissDialogue) {
-                TeamColumn(
-                    team = selectedTeam(state.teamIndex),
-                    vm = vm,
-                    isYellowActive = { vm.isYellowActive(it) },
-                    isRedActive = { vm.isRedActive(it) },
-                    yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
-                    onPlayerTapped = { number ->
-                        if(vm.getSubBatchPlayers().find{it.playerOff == number} == null
-                            && selectedTeam(state.teamIndex).players.find { it.isOnField } != null)
-                            uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, number)
-                    }
+            val subs = vm.getSubBatchPlayers()
+            val usedOff = subs.map { it.playerOff }.toSet()
+            val eligibleOff =
+                selectedTeam(state.teamIndex).players.filter { it.isOnField && it.number !in usedOff }
+            if (eligibleOff.isEmpty()) {
+                AlertDialog(
+                    onDismissRequest = {
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                    },
+                    title = { Text("Substitutions") },
+                    text = {
+                        Text("No players available for substitution.")
+                    },
+                    confirmButton = {
+                        OutlinedButton(onClick = {
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        }) { Text("Ok") }
+                    },
+                    dismissButton = {}
+                )
+            } else {
+                SubstitutePlayerOffDialogue(
+                    potentialPlayers = eligibleOff,
+                    onConfirm = { offNumber ->
+                        uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, offNumber)
+                    },
+                    onDismiss = { uiState = MatchScreenUiState.SubBatchReview(state.teamIndex) }
                 )
             }
         }
@@ -332,16 +423,27 @@ fun MatchScreen(modifier: Modifier = Modifier,
                 DiscType.YELLOW -> {
                     DisciplineReasonYellowDialogue(
                         onConfirm = { reason ->
-                            vm.recordDiscipline(state.teamIndex, state.playerNumber, state.type, reason)
+                            vm.recordDiscipline(
+                                state.teamIndex,
+                                state.playerNumber,
+                                state.type,
+                                reason
+                            )
                             dismissDialogue()
                         },
                         onDismiss = dismissDialogue
                     )
                 }
+
                 DiscType.RED -> {
                     DisciplineReasonRedDialogue(
                         onConfirm = { reason ->
-                            vm.recordDiscipline(state.teamIndex, state.playerNumber, state.type, reason)
+                            vm.recordDiscipline(
+                                state.teamIndex,
+                                state.playerNumber,
+                                state.type,
+                                reason
+                            )
                             dismissDialogue()
                         },
                         onDismiss = dismissDialogue
@@ -381,7 +483,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
         )
     }
     if (showLogHalfDialog) {
-        val canLogHalf = (vm.clock.elapsedMs >= 40L * 60L * 1000L) && (vm.halfTimeMs.longValue == 0L)
+        val canLogHalf =
+            (vm.clock.elapsedMs >= 40L * 60L * 1000L) && (vm.halfTimeMs.longValue == 0L)
         AlertDialog(
             onDismissRequest = { showLogHalfDialog = false },
             title = { Text("Log Half") },
@@ -411,7 +514,8 @@ fun MatchScreen(modifier: Modifier = Modifier,
 }
 
 @Composable
-fun ScoreDialogue(teamName: String,
+fun ScoreDialogue(
+    teamName: String,
     playerName: String,
     onConfirm: (ScoreType) -> Unit,
     onDismiss: () -> Unit
@@ -477,11 +581,30 @@ fun SubstituteSummaryDialogue(
     onCancel: () -> Unit,
     onAddAnother: () -> Unit,
     onRemove: (Int) -> Unit,
-    labelForSub: (PendingSub) -> String
+    labelForSub: (PendingSub) -> String,
+    eligibleOn: Boolean
 ) {
-    var selected: PendingSub? by remember { mutableStateOf(null) }
+    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother, onConfirm, onCancel, eligibleOn)
+}
 
-    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother,onConfirm,onCancel)
+@Composable
+fun SubstitutePlayerOffDialogue(
+    potentialPlayers: List<Player>,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected: Player? by remember { mutableStateOf(null) }
+
+    SingleChoiceDialog(
+        title = "Substitution",
+        prompt = "Player coming off:",
+        options = potentialPlayers,
+        selected = selected,
+        optionLabel = { player -> "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}" },
+        onSelected = { selected = it },
+        onConfirm = { onConfirm(it.number) },
+        onDismiss = onDismiss
+    )
 }
 
 @Composable
@@ -543,27 +666,29 @@ fun DisciplineReasonRedDialogue(
 }
 
 @Composable
-private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when
-{
+private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when {
     redActive -> Color(0xFFE74751)
     yellowActive -> Color(0xFFFFB834)
     else -> MaterialTheme.colorScheme.surface
 }
 
 @Composable
-fun TeamColumn(team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
-               isYellowActive: (Player) -> Boolean, isRedActive: (Player) -> Boolean,
-               yellowLabel: (Player) -> String, onPlayerTapped: (Int) -> Unit) {
+fun TeamColumn(
+    team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
+    isYellowActive: (Player) -> Boolean, isRedActive: (Player) -> Boolean,
+    yellowLabel: (Player) -> String, onPlayerTapped: (Int) -> Unit
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(5.dp))
+        modifier = modifier.padding(5.dp)
+    )
     {
         val onField = team.players
             .filter { it.isOnField }
             .sortedBy { it.fieldPos ?: 999 }
 
         LazyColumn {
-            item{
+            item {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -590,12 +715,10 @@ fun TeamColumn(team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
                     {
                         Text("${player.number}. ${player.name}")
 
-                        if (isYellowActive(player))
-                        {
+                        if (isYellowActive(player)) {
                             Text("Yellow: ${yellowLabel(player)}")
                         }
-                        if (isRedActive(player))
-                        {
+                        if (isRedActive(player)) {
                             Text("Red")
                         }
                     }
