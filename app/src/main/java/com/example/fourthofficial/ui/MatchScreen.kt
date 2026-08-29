@@ -38,7 +38,6 @@ import com.example.fourthofficial.domain.event.DisciplineReason
 import com.example.fourthofficial.domain.event.DisciplineReasonRed
 import com.example.fourthofficial.domain.event.DisciplineReasonYellow
 import com.example.fourthofficial.domain.event.DisciplineType
-import com.example.fourthofficial.domain.rules.getScoreTypePoints
 import com.example.fourthofficial.model.PendingSub
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.domain.event.ScoreType
@@ -174,8 +173,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamId == vm.team1.id }
-                    .sumOf { getScoreTypePoints(it.type) }.toString()
+                text = vm.scoreForTeam(vm.team1.id).toString()
             )
             Text(
                 modifier = Modifier.weight(1f),
@@ -187,8 +185,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamId == vm.team2.id }
-                    .sumOf { getScoreTypePoints(it.type) }.toString()
+                text = vm.scoreForTeam(vm.team2.id).toString()
             )
         }
 
@@ -200,8 +197,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamId == vm.team1.id && it.halfIndex == 1 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString()
+                text = vm.halfTimeScoreForTeam(vm.team1.id).toString()
             )
             Text(
                 modifier = Modifier.weight(1f),
@@ -213,8 +209,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamId == vm.team2.id && it.halfIndex == 1 }
-                    .sumOf { getScoreTypePoints(it.type) }.toString()
+                text = vm.halfTimeScoreForTeam(vm.team2.id).toString()
             )
         }
 
@@ -281,19 +276,7 @@ fun MatchScreen(
 
                         Button(
                             onClick = {
-                                val subs = vm.getSubBatchPlayers()
-                                val usedOn = subs.map { it.playerOnId }.toSet()
-
-                                val eligibleOn =
-                                    selectedTeam(state.teamId).players.filter { player ->
-                                        val playerState = vm.getPlayerState(state.teamId, player.id)
-
-                                        playerState != null &&
-                                                !playerState.isOnField &&
-                                                !vm.isYellowActive(playerState) &&
-                                                !vm.isRedActive(playerState) &&
-                                                player.id !in usedOn
-                                        }
+                                val eligibleOn = vm.eligiblePlayersOn(state.teamId)
                                 if (eligibleOn.isEmpty())
                                     uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                                 else {
@@ -337,17 +320,7 @@ fun MatchScreen(
 
         is MatchScreenUiState.SubPickOnPlayer -> {
             val subs = vm.getSubBatchPlayers()
-            val usedOn = subs.map { it.playerOnId }.toSet()
-            val eligibleOn =
-                selectedTeam(state.teamId).players.filter { player ->
-                    val playerState = vm.getPlayerState(state.teamId, player.id)
-
-                    playerState != null &&
-                            !playerState.isOnField &&
-                            !vm.isYellowActive(playerState) &&
-                            !vm.isRedActive(playerState) &&
-                            player.id !in usedOn
-                }
+            val eligibleOn = vm.eligiblePlayersOn(state.teamId)
             if (eligibleOn.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
@@ -401,18 +374,7 @@ fun MatchScreen(
         }
 
         is MatchScreenUiState.SubBatchReview -> {
-            val subs = vm.getSubBatchPlayers()
-            val usedOn = subs.map { it.playerOnId }.toSet()
-            val eligibleOn =
-                selectedTeam(state.teamId).players.filter { player ->
-                    val playerState = vm.getPlayerState(state.teamId, player.id)
-
-                    playerState != null &&
-                            !playerState.isOnField &&
-                            !vm.isYellowActive(playerState) &&
-                            !vm.isRedActive(playerState) &&
-                            player.id !in usedOn
-                }
+            val canAddAnotherSub = vm.canAddAnotherSub(state.teamId)
             SubstituteSummaryDialogue(
                 subs = vm.getSubBatchPlayers(),
                 onConfirm = {
@@ -434,23 +396,12 @@ fun MatchScreen(
                             "${playerLabel(state.teamId, sub.playerOnId)} " +
                             "(${sub.type.label})"
                 },
-                eligibleOn = eligibleOn.isNotEmpty()
+                canAddAnotherSub = canAddAnotherSub
             )
         }
 
         is MatchScreenUiState.SubPickOffPlayer -> {
-            val subs = vm.getSubBatchPlayers()
-            val usedOff = subs.map { it.playerOffId }.toSet()
-            val eligibleOff =
-                selectedTeam(state.teamId).players.filter { player ->
-                    val playerState = vm.getPlayerState(state.teamId, player.id)
-
-                    playerState != null &&
-                            playerState.isOnField &&
-                            !vm.isYellowActive(playerState) &&
-                            !vm.isRedActive(playerState) &&
-                            player.id !in usedOff
-                }
+            val eligibleOff = vm.eligiblePlayersOff(state.teamId)
             if (eligibleOff.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
@@ -558,15 +509,7 @@ fun MatchScreen(
         )
     }
     if (showLogHalfDialog) {
-        val canFinishHalf =
-            when (vm.phase) {
-                MatchPhase.FIRST_HALF,
-                MatchPhase.SECOND_HALF ->
-                    vm.clock.halfElapsedMs >= vm.halfDurationMs
-
-                else -> false
-            }
-
+        val canFinishHalf = vm.canFinishHalf
         val finishingMatch = vm.phase == MatchPhase.SECOND_HALF
 
         AlertDialog(
@@ -677,9 +620,9 @@ fun SubstituteSummaryDialogue(
     onAddAnother: () -> Unit,
     onRemove: (PlayerId) -> Unit,
     labelForSub: (PendingSub) -> String,
-    eligibleOn: Boolean
+    canAddAnotherSub: Boolean
 ) {
-    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother, onConfirm, onCancel, eligibleOn)
+    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother, onConfirm, onCancel, canAddAnotherSub)
 }
 
 @Composable
@@ -796,7 +739,7 @@ fun TeamColumn(
             }
             items(onField.size) { i ->
                 val (player, state) = onField[i]
-                val locked = vm.isYellowActive(state) || vm.isRedActive(state) || !vm.isClockRunning()
+                val locked = !vm.canActOnPlayer(state)
                 Surface(
                     color = playerTileColor(vm.isYellowActive(state), vm.isRedActive(state)),
                     shape = MaterialTheme.shapes.small,

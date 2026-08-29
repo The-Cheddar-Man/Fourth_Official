@@ -24,7 +24,20 @@ import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.model.SubBatchState
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.event.Substitution
+import com.example.fourthofficial.domain.rules.applyRedCard
+import com.example.fourthofficial.domain.rules.applyYellowCard
 import com.example.fourthofficial.domain.team.Team
+import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
+import com.example.fourthofficial.domain.rules.isRedActive as isRedActiveRule
+import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
+import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
+import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
+import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
+import com.example.fourthofficial.domain.rules.canSubstituteOff
+import com.example.fourthofficial.domain.rules.canSubstituteOn
+import com.example.fourthofficial.domain.rules.isMatchInPlay
+import com.example.fourthofficial.domain.rules.calculateScore
+import com.example.fourthofficial.domain.rules.resolveDisciplineType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -66,6 +79,91 @@ class MatchViewModel : ViewModel() {
         matchState = matchState.copy(
             events = matchState.events + event
         )
+    }
+
+    fun canActOnPlayer(state: MatchPlayerState): Boolean {
+        return canActOnPlayerRule(state = state, phase = phase, clock = clock)
+    }
+
+    fun eligiblePlayersOn(teamId: TeamId): List<Player> {
+        if (!isMatchInPlay(phase, clock)) return emptyList()
+
+        val team = when (teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return emptyList()
+        }
+
+        val usedOn = subBatch
+            ?.takeIf { it.teamId == teamId }
+            ?.pendingSubs
+            ?.map { it.playerOnId }
+            ?.toSet()
+            ?: emptySet()
+
+        return team.players.filter { player ->
+            val state = getPlayerState(teamId, player.id)
+                ?: return@filter false
+
+            canSubstituteOn(
+                state = state,
+                totalElapsedMs = clock.totalElapsedMs,
+                alreadyUsed = player.id in usedOn
+            )
+        }
+    }
+
+    fun eligiblePlayersOff(teamId: TeamId): List<Player> {
+        if (!isMatchInPlay(phase, clock)) return emptyList()
+
+        val team = when (teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return emptyList()
+        }
+
+        val usedOff = subBatch
+            ?.takeIf { it.teamId == teamId }
+            ?.pendingSubs
+            ?.map { it.playerOffId }
+            ?.toSet()
+            ?: emptySet()
+
+        return team.players.filter { player ->
+            val state = getPlayerState(teamId, player.id)
+                ?: return@filter false
+
+            canSubstituteOff(
+                state = state,
+                totalElapsedMs = clock.totalElapsedMs,
+                alreadyUsed = player.id in usedOff
+            )
+        }
+    }
+
+    val canFinishHalf: Boolean
+        get() = canFinishHalfRule(
+            phase = phase,
+            halfElapsedMs = clock.halfElapsedMs,
+            halfDurationMs = halfDurationMs
+        )
+
+    fun scoreForTeam(teamId: TeamId): Int {
+        return calculateScore(
+            scoreEvents.filter { it.teamId == teamId }
+        )
+    }
+
+    fun halfTimeScoreForTeam(teamId: TeamId): Int {
+        return calculateScore(
+            scoreEvents.filter {
+                it.teamId == teamId && it.halfIndex == 1
+            }
+        )
+    }
+
+    fun canAddAnotherSub(teamId: TeamId): Boolean {
+        return eligiblePlayersOff(teamId).isNotEmpty() && eligiblePlayersOn(teamId).isNotEmpty()
     }
 
     //==================
@@ -156,6 +254,9 @@ class MatchViewModel : ViewModel() {
     //==================
 
     fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
+        val playerState = getPlayerState(teamId, playerId) ?: return
+        if (!canActOnPlayer(playerState)) return
+
         val score = Score(
             timeMs = displayElapsedMs,
             teamId = teamId,
@@ -206,6 +307,9 @@ class MatchViewModel : ViewModel() {
     }
 
     fun applySubBatch() {
+        if (!isMatchInPlay(phase, clock))
+            return
+
         val batch = subBatch ?: return
         val teamStates = when (batch.teamId) {
             team1.id -> team1PlayerStates
@@ -218,8 +322,11 @@ class MatchViewModel : ViewModel() {
             val playerOffState = updatedStates[sub.playerOffId] ?: return
             val playerOnState = updatedStates[sub.playerOnId] ?: return
 
-            if (!playerOffState.isOnField) return
-            if (playerOnState.isOnField) return
+            if (!canSubstituteOff(state = playerOffState, totalElapsedMs = clock.totalElapsedMs))
+                return
+
+            if (!canSubstituteOn(state = playerOnState, totalElapsedMs = clock.totalElapsedMs))
+                return
 
             val position = playerOffState.fieldPos ?: return
 
@@ -283,14 +390,17 @@ class MatchViewModel : ViewModel() {
     //      CARDS
     //==================
 
-    private val yellowDurationMs = 10L * 60L * 1000L
-
     fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType, reason: DisciplineReason) {
-        val finalType = if (type == DisciplineType.YELLOW && discEvents.any { event ->
-                event.teamId == teamId && event.playerId == playerId && event.type == DisciplineType.YELLOW
-            }) {
-            DisciplineType.RED
-        } else type
+        val playerState = getPlayerState(teamId, playerId) ?: return
+        if (!canActOnPlayer(playerState)) return
+        if (!isDisciplineReasonValid(type, reason)) return
+
+        val hasPreviousYellow = discEvents.any {
+            it.teamId == teamId && it.playerId == playerId && it.type == DisciplineType.YELLOW
+        }
+
+        val finalType = resolveDisciplineType(
+            requestedType = type, hasPreviousYellow = hasPreviousYellow)
 
         val discs = Discipline(
             timeMs = displayElapsedMs,
@@ -314,8 +424,7 @@ class MatchViewModel : ViewModel() {
         }
 
         val state = teamStates[playerId] ?: return
-        val until = clock.totalElapsedMs + yellowDurationMs
-        val updatedState = state.copy(yellowUntilPlayingMs = until)
+        val updatedState = applyYellowCard(state = state, totalElapsedMs = clock.totalElapsedMs)
 
         updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
@@ -328,22 +437,23 @@ class MatchViewModel : ViewModel() {
         }
 
         val state = teamStates[playerId] ?: return
-        val updatedState = state.copy(isRedCarded = true, yellowUntilPlayingMs = null)
+        val updatedState = applyRedCard(state)
         updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
 
     fun isYellowActive(state: MatchPlayerState): Boolean {
-        val until = state.yellowUntilPlayingMs ?: return false
-        return clock.totalElapsedMs < until
+        return isYellowActiveRule(
+            state = state,
+            totalElapsedMs = clock.totalElapsedMs
+        )
     }
 
     fun yellowRemainingMs(state: MatchPlayerState): Long {
-        val until = state.yellowUntilPlayingMs ?: return 0L
-        return (until - clock.totalElapsedMs).coerceAtLeast(0L)
+        return yellowRemainingMsRule(state, clock.totalElapsedMs)
     }
 
     fun isRedActive(state: MatchPlayerState): Boolean {
-        return state.isRedCarded
+        return isRedActiveRule(state)
     }
 
     private fun clearAllCards() {
@@ -448,7 +558,7 @@ class MatchViewModel : ViewModel() {
 
     fun logHalf() {
         if (phase != MatchPhase.FIRST_HALF) return
-        if (clock.halfElapsedMs < halfDurationMs) return
+        if (!canFinishHalf) return
 
         stopClock()
 
@@ -462,17 +572,13 @@ class MatchViewModel : ViewModel() {
 
     fun endMatch() {
         if (phase != MatchPhase.SECOND_HALF) return
-        if (clock.halfElapsedMs < halfDurationMs) return
+        if (!canFinishHalf) return
 
         stopClock()
 
         matchState = matchState.copy(
             phase = MatchPhase.FINISHED
         )
-    }
-
-    fun isClockRunning(): Boolean {
-        return clock.isRunning
     }
 
     fun resetClock() {

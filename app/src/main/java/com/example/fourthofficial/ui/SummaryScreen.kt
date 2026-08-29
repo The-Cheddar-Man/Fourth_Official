@@ -79,7 +79,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
             SummaryTab.Scores -> ScoresTab(vm = vm, team = team, halfIndex = selectedHalf)
             SummaryTab.Substitutions -> SubstitutionsTab(vm = vm, team = team, halfIndex = selectedHalf)
             SummaryTab.Disciplines -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Export -> ExportTab(vm = vm)
+            SummaryTab.Export -> ExportTab()
         }
     }
 }
@@ -187,7 +187,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
+private fun ExportTab(modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
