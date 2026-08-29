@@ -34,15 +34,15 @@ import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
-import com.example.fourthofficial.model.DiscReason
-import com.example.fourthofficial.model.DiscReasonRed
-import com.example.fourthofficial.model.DiscReasonYellow
-import com.example.fourthofficial.model.DiscType
-import com.example.fourthofficial.model.GetScoreTypePoints
+import com.example.fourthofficial.domain.event.DisciplineReason
+import com.example.fourthofficial.domain.event.DisciplineReasonRed
+import com.example.fourthofficial.domain.event.DisciplineReasonYellow
+import com.example.fourthofficial.domain.event.DisciplineType
+import com.example.fourthofficial.domain.rules.getScoreTypePoints
 import com.example.fourthofficial.model.PendingSub
 import com.example.fourthofficial.domain.team.Player
-import com.example.fourthofficial.model.ScoreType
-import com.example.fourthofficial.model.SubType
+import com.example.fourthofficial.domain.event.ScoreType
+import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.components.MatchScreenUiState
 import com.example.fourthofficial.ui.components.SingleChoiceDialog
@@ -175,7 +175,7 @@ fun MatchScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamId == vm.team1.id }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+                    .sumOf { getScoreTypePoints(it.type) }.toString()
             )
             Text(
                 modifier = Modifier.weight(1f),
@@ -188,7 +188,7 @@ fun MatchScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamId == vm.team2.id }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+                    .sumOf { getScoreTypePoints(it.type) }.toString()
             )
         }
 
@@ -201,7 +201,7 @@ fun MatchScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamId == vm.team1.id && it.halfIndex == 1 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+                    .sumOf { getScoreTypePoints(it.type) }.toString()
             )
             Text(
                 modifier = Modifier.weight(1f),
@@ -214,7 +214,7 @@ fun MatchScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
                 text = vm.scoreEvents.filter { it.teamId == vm.team2.id && it.halfIndex == 1 }
-                    .sumOf { GetScoreTypePoints(it.type) }.toString()
+                    .sumOf { getScoreTypePoints(it.type) }.toString()
             )
         }
 
@@ -494,7 +494,7 @@ fun MatchScreen(
 
         is MatchScreenUiState.DiscPickReason -> {
             when (state.type) {
-                DiscType.YELLOW -> {
+                DisciplineType.YELLOW -> {
                     DisciplineReasonYellowDialogue(
                         onConfirm = { reason ->
                             vm.recordDiscipline(
@@ -509,7 +509,7 @@ fun MatchScreen(
                     )
                 }
 
-                DiscType.RED -> {
+                DisciplineType.RED -> {
                     DisciplineReasonRedDialogue(
                         onConfirm = { reason ->
                             vm.recordDiscipline(
@@ -652,15 +652,15 @@ fun SubstitutePlayerOnDialogue(
 
 @Composable
 fun SubstituteReasonDialogue(
-    onConfirm: (SubType) -> Unit,
+    onConfirm: (SubstitutionType) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected: SubType? by remember { mutableStateOf(null) }
+    var selected: SubstitutionType? by remember { mutableStateOf(null) }
 
     SingleChoiceDialog(
         title = "Substitution",
         prompt = "Reason for substitution:",
-        options = SubType.entries,
+        options = SubstitutionType.entries,
         selected = selected,
         optionLabel = { it.label },
         onSelected = { selected = it },
@@ -705,15 +705,15 @@ fun SubstitutePlayerOffDialogue(
 @Composable
 fun DisciplineTypeDialogue(
     playerName: String,
-    onConfirm: (DiscType) -> Unit,
+    onConfirm: (DisciplineType) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected: DiscType? by remember { mutableStateOf(null) }
+    var selected: DisciplineType? by remember { mutableStateOf(null) }
 
     SingleChoiceDialog(
         title = "Discipline",
         prompt = "Card for $playerName:",
-        options = DiscType.entries,
+        options = DisciplineType.entries,
         selected = selected,
         optionLabel = { it.label },
         onSelected = { selected = it },
@@ -724,15 +724,15 @@ fun DisciplineTypeDialogue(
 
 @Composable
 fun DisciplineReasonYellowDialogue(
-    onConfirm: (DiscReason) -> Unit,
+    onConfirm: (DisciplineReason) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected: DiscReason? by remember { mutableStateOf(null) }
+    var selected: DisciplineReason? by remember { mutableStateOf(null) }
 
     SingleChoiceDialog(
         title = "Discipline",
         prompt = "Discipline reason:",
-        options = DiscReasonYellow.entries,
+        options = DisciplineReasonYellow.entries,
         selected = selected,
         optionLabel = { it.label },
         onSelected = { selected = it },
@@ -743,15 +743,15 @@ fun DisciplineReasonYellowDialogue(
 
 @Composable
 fun DisciplineReasonRedDialogue(
-    onConfirm: (DiscReason) -> Unit,
+    onConfirm: (DisciplineReason) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected: DiscReason? by remember { mutableStateOf(null) }
+    var selected: DisciplineReason? by remember { mutableStateOf(null) }
 
     SingleChoiceDialog(
         title = "Discipline",
         prompt = "Discipline reason:",
-        options = DiscReasonRed.entries,
+        options = DisciplineReasonRed.entries,
         selected = selected,
         optionLabel = { it.label },
         onSelected = { selected = it },

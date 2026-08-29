@@ -1,7 +1,7 @@
 package com.example.fourthofficial.ui.components
+import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
-import com.example.fourthofficial.model.DiscType
 
 sealed interface MatchScreenUiState {
     data object None : MatchScreenUiState
@@ -16,5 +16,5 @@ sealed interface MatchScreenUiState {
     data class SubPickOffPlayer(val teamId: TeamId) : MatchScreenUiState
 
     data class DiscPickType(val teamId: TeamId, val playerId: PlayerId) : MatchScreenUiState
-    data class DiscPickReason(val teamId: TeamId, val playerId: PlayerId, val type: DiscType) : MatchScreenUiState
+    data class DiscPickReason(val teamId: TeamId, val playerId: PlayerId, val type: DisciplineType) : MatchScreenUiState
 }

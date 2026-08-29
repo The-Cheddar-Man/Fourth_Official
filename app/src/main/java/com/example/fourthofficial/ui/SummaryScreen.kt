@@ -25,9 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.id.PlayerId
-import com.example.fourthofficial.model.Discipline
-import com.example.fourthofficial.model.Score
-import com.example.fourthofficial.model.Substitution
+import com.example.fourthofficial.domain.event.Discipline
+import com.example.fourthofficial.domain.event.Score
+import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.components.DataTable
 import com.example.fourthofficial.ui.components.TableColumn

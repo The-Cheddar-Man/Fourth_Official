@@ -9,26 +9,64 @@ import androidx.lifecycle.viewModelScope
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
+import com.example.fourthofficial.domain.event.MatchEvent
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
-import com.example.fourthofficial.model.DiscReason
-import com.example.fourthofficial.model.DiscType
-import com.example.fourthofficial.model.Discipline
+import com.example.fourthofficial.domain.event.DisciplineType
+import com.example.fourthofficial.domain.event.Discipline
+import com.example.fourthofficial.domain.event.DisciplineReason
 import com.example.fourthofficial.model.PendingSub
 import com.example.fourthofficial.domain.team.Player
-import com.example.fourthofficial.model.Score
-import com.example.fourthofficial.model.ScoreType
+import com.example.fourthofficial.domain.event.Score
+import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.model.SubBatchState
-import com.example.fourthofficial.model.SubType
-import com.example.fourthofficial.model.Substitution
+import com.example.fourthofficial.domain.event.SubstitutionType
+import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.team.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MatchViewModel : ViewModel() {
+
+    //==================
+    //    Interface
+    //==================
+
+    val team1: Team
+        get() = matchState.team1.team
+
+    val team2: Team
+        get() = matchState.team2.team
+
+    val team1PlayerStates: Map<PlayerId, MatchPlayerState>
+        get() = matchState.team1.playerStates
+
+    val team2PlayerStates: Map<PlayerId, MatchPlayerState>
+        get() = matchState.team2.playerStates
+
+    val clock: MatchClock
+        get() = matchState.clock
+
+    val phase: MatchPhase
+        get() = matchState.phase
+
+    val scoreEvents: List<Score>
+        get() = matchState.events.filterIsInstance<Score>()
+
+    val subEvents: List<Substitution>
+        get() = matchState.events.filterIsInstance<Substitution>()
+
+    val discEvents: List<Discipline>
+        get() = matchState.events.filterIsInstance<Discipline>()
+
+    private fun addEvent(event: MatchEvent) {
+        matchState = matchState.copy(
+            events = matchState.events + event
+        )
+    }
 
     //==================
     //      TEAM
@@ -72,33 +110,6 @@ class MatchViewModel : ViewModel() {
             team2 = defaultMatchTeamState(team2)
         )
     }
-
-    val team1: Team
-        get() = matchState.team1.team
-
-    val team2: Team
-        get() = matchState.team2.team
-
-    val team1PlayerStates: Map<PlayerId, MatchPlayerState>
-        get() = matchState.team1.playerStates
-
-    val team2PlayerStates: Map<PlayerId, MatchPlayerState>
-        get() = matchState.team2.playerStates
-
-    val clock: MatchClock
-        get() = matchState.clock
-
-    val phase: MatchPhase
-        get() = matchState.phase
-
-    val scoreEvents: List<Score>
-        get() = matchState.scoreEvents
-
-    val subEvents: List<Substitution>
-        get() = matchState.subEvents
-
-    val discEvents: List<Discipline>
-        get() = matchState.discEvents
 
     fun getPlayerState(teamId: TeamId, playerId: PlayerId): MatchPlayerState? {
         val states = when (teamId) {
@@ -153,11 +164,11 @@ class MatchViewModel : ViewModel() {
             type = scoreType
         )
 
-        matchState = matchState.copy(scoreEvents = matchState.scoreEvents + score)
+        addEvent(score)
     }
 
     fun resetScores() {
-        matchState = matchState.copy(scoreEvents = emptyList())
+        matchState = matchState.copy(events = matchState.events.filterNot { it is Score })
     }
 
     //==================
@@ -168,7 +179,7 @@ class MatchViewModel : ViewModel() {
         private set
 
     private fun recordSub(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId,
-                          reason: SubType, time: Long, halfIndex: Int) {
+                          reason: SubstitutionType, time: Long, halfIndex: Int) {
         val subs = Substitution(
             timeMs = time,
             teamId = teamId,
@@ -177,7 +188,7 @@ class MatchViewModel : ViewModel() {
             playerOnId = playerOnId,
             type = reason
         )
-        matchState = matchState.copy(subEvents = matchState.subEvents + subs)
+        addEvent(subs)
     }
 
     fun startSubBatch(teamId: TeamId) {
@@ -239,7 +250,7 @@ class MatchViewModel : ViewModel() {
         subBatch = null
     }
 
-    fun addPendingSub(playerOffId: PlayerId, playerOnId: PlayerId, type: SubType) {
+    fun addPendingSub(playerOffId: PlayerId, playerOnId: PlayerId, type: SubstitutionType) {
         val batch = subBatch ?: return
         if (playerOffId == playerOnId) return
         if (batch.pendingSubs.find { it.playerOffId == playerOffId } != null) return
@@ -264,7 +275,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun resetSubs() {
-        matchState = matchState.copy(subEvents = emptyList())
+        matchState = matchState.copy(events = matchState.events.filterNot { it is Substitution })
         subBatch = null
     }
 
@@ -274,11 +285,11 @@ class MatchViewModel : ViewModel() {
 
     private val yellowDurationMs = 10L * 60L * 1000L
 
-    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DiscType, reason: DiscReason) {
-        val finalType = if (type == DiscType.YELLOW && discEvents.any { event ->
-                event.teamId == teamId && event.playerId == playerId && event.type == DiscType.YELLOW
+    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType, reason: DisciplineReason) {
+        val finalType = if (type == DisciplineType.YELLOW && discEvents.any { event ->
+                event.teamId == teamId && event.playerId == playerId && event.type == DisciplineType.YELLOW
             }) {
-            DiscType.RED
+            DisciplineType.RED
         } else type
 
         val discs = Discipline(
@@ -289,9 +300,9 @@ class MatchViewModel : ViewModel() {
             type = finalType,
             reason = reason,
         )
-        matchState = matchState.copy(discEvents = matchState.discEvents + discs)
+        addEvent(discs)
 
-        if (finalType == DiscType.YELLOW) applyYellow(teamId, playerId)
+        if (finalType == DisciplineType.YELLOW) applyYellow(teamId, playerId)
         else applyRed(teamId, playerId)
     }
 
@@ -353,7 +364,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun resetDiscs() {
-        matchState = matchState.copy(discEvents = emptyList())
+        matchState = matchState.copy(events = matchState.events.filterNot { it is Discipline })
         clearAllCards()
     }
 

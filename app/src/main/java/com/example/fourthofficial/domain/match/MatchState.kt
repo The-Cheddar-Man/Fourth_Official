@@ -1,9 +1,7 @@
 package com.example.fourthofficial.domain.match
 
 import com.example.fourthofficial.domain.id.MatchId
-import com.example.fourthofficial.model.Discipline
-import com.example.fourthofficial.model.Score
-import com.example.fourthofficial.model.Substitution
+import com.example.fourthofficial.domain.event.MatchEvent
 
 data class MatchState(
     val id: MatchId = MatchId.new(),
@@ -14,7 +12,5 @@ data class MatchState(
     val team1: MatchTeamState,
     val team2: MatchTeamState,
 
-    val scoreEvents: List<Score> = emptyList(),
-    val subEvents: List<Substitution> = emptyList(),
-    val discEvents: List<Discipline> = emptyList()
+    val events: List<MatchEvent> = emptyList()
 )
