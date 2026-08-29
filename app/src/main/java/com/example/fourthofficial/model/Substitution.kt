@@ -1,25 +1,29 @@
 package com.example.fourthofficial.model
 
+import com.example.fourthofficial.domain.id.EventId
+import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
+
 data class Substitution(
-    val eventID: Int,
+    val id: EventId = EventId.new(),
     val timeMs : Long,
-    val teamIndex : Int,
+    val teamId : TeamId,
     val halfIndex: Int,
-    val playerOff : Int,
-    val playerOn : Int,
+    val playerOffId : PlayerId,
+    val playerOnId : PlayerId,
     val type: SubType
 )
 
 data class SubBatchState(
-    val teamIndex: Int,
+    val teamId: TeamId,
     val timeMs: Long,
     val halfIndex: Int,
     val pendingSubs: List<PendingSub> = emptyList()
 )
 
 data class PendingSub(
-    val playerOff: Int,
-    val playerOn: Int,
+    val playerOffId: PlayerId,
+    val playerOnId: PlayerId,
     val type: SubType
 )
 

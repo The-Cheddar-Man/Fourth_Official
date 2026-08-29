@@ -1,18 +1,20 @@
 package com.example.fourthofficial.ui.components
+import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.model.DiscType
 
 sealed interface MatchScreenUiState {
     data object None : MatchScreenUiState
 
-    data class ActionMenu(val teamIndex: Int, val playerNumber: Int) : MatchScreenUiState
+    data class ActionMenu(val teamId: TeamId, val playerId: PlayerId) : MatchScreenUiState
 
-    data class ScorePick(val teamIndex: Int, val playerNumber: Int) : MatchScreenUiState
+    data class ScorePick(val teamId: TeamId, val playerId: PlayerId) : MatchScreenUiState
 
-    data class SubPickOnPlayer(val teamIndex: Int, val offNumber: Int) : MatchScreenUiState
-    data class SubPickReason(val teamIndex: Int, val offNumber: Int, val onNumber: Int) : MatchScreenUiState
-    data class SubBatchReview(val teamIndex: Int) : MatchScreenUiState
-    data class SubPickOffPlayer(val teamIndex: Int) : MatchScreenUiState
+    data class SubPickOnPlayer(val teamId: TeamId, val playerOffId: PlayerId) : MatchScreenUiState
+    data class SubPickReason(val teamId: TeamId, val playerOffId: PlayerId, val playerOnId: PlayerId) : MatchScreenUiState
+    data class SubBatchReview(val teamId: TeamId) : MatchScreenUiState
+    data class SubPickOffPlayer(val teamId: TeamId) : MatchScreenUiState
 
-    data class DiscPickType(val teamIndex: Int, val playerNumber: Int) : MatchScreenUiState
-    data class DiscPickReason(val teamIndex: Int, val playerNumber: Int, val type: DiscType) : MatchScreenUiState
+    data class DiscPickType(val teamId: TeamId, val playerId: PlayerId) : MatchScreenUiState
+    data class DiscPickReason(val teamId: TeamId, val playerId: PlayerId, val type: DiscType) : MatchScreenUiState
 }

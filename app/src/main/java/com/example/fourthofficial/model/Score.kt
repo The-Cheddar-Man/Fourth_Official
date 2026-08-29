@@ -1,11 +1,15 @@
 package com.example.fourthofficial.model
 
+import com.example.fourthofficial.domain.id.EventId
+import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
+
 data class Score(
-    val eventID: Int,
-    val timeMs : Long,
-    val teamIndex : Int,
+    val id: EventId = EventId.new(),
+    val timeMs: Long,
+    val teamId: TeamId,
     val halfIndex: Int,
-    val player : Int,
+    val playerId: PlayerId,
     val type: ScoreType
 )
 

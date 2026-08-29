@@ -21,13 +21,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.model.PendingSub
 
 @Composable
 fun SubBatchReviewDialog(
     subs: List<PendingSub>,
     labelForSub: (PendingSub) -> String,
-    onRemove: (Int) -> Unit,
+    onRemove: (PlayerId) -> Unit,
     onAddAnother: () -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
@@ -59,7 +60,7 @@ fun SubBatchReviewDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(labelForSub(sub), Modifier.weight(1f))
-                                OutlinedButton(onClick = { onRemove(sub.playerOff) }) {
+                                OutlinedButton(onClick = { onRemove(sub.playerOffId) }) {
                                     Text("Remove")
                                 }
                             }

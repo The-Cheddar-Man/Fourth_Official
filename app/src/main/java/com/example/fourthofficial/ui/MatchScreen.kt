@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscReasonRed
 import com.example.fourthofficial.model.DiscReasonYellow
@@ -55,12 +57,23 @@ fun MatchScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogHalfDialog by remember { mutableStateOf(false) }
 
-    val selectedTeam = { teamIndex: Int -> if (teamIndex == 1) vm.team1 else vm.team2 }
-    val selectedTeamName =
-        { teamIndex: Int -> selectedTeam(teamIndex).name.ifBlank { "Team $teamIndex" } }
-    val selectedPlayer = { teamIndex: Int, playerNum: Int ->
-        selectedTeam(teamIndex).players.find { it.number == playerNum }?.name?.ifBlank { "(Unnamed)" }
+    val selectedTeam = { teamId: TeamId -> when(teamId){
+        vm.team1.id -> vm.team1
+        vm.team2.id -> vm.team2
+        else -> error("Unknown TeamID: $teamId")
+    }}
+    val selectedTeamName = { teamId: TeamId ->
+        val team = selectedTeam(teamId)
+        team.name.ifBlank { "Team ${team.index}" } }
+    val selectedPlayer = { teamId: TeamId, playerId: PlayerId ->
+        selectedTeam(teamId).players.find { it.id == playerId }?.name?.ifBlank { "(Unnamed)" }
             ?: "(Unnamed)"
+    }
+    val playerLabel = { teamId: TeamId, playerId: PlayerId ->
+        selectedTeam(teamId).players
+            .find { it.id == playerId }?.let { player ->
+                "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}"
+            }?: "Unknown player"
     }
 
     Column(
@@ -131,7 +144,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamIndex == 1 }
+                text = vm.scoreEvents.filter { it.teamId == vm.team1.id }
                     .sumOf { GetScoreTypePoints(it.type) }.toString()
             )
             Text(
@@ -144,7 +157,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamIndex == 2 }
+                text = vm.scoreEvents.filter { it.teamId == vm.team2.id }
                     .sumOf { GetScoreTypePoints(it.type) }.toString()
             )
         }
@@ -157,7 +170,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamIndex == 1 && it.halfIndex == 1 }
+                text = vm.scoreEvents.filter { it.teamId == vm.team1.id && it.halfIndex == 1 }
                     .sumOf { GetScoreTypePoints(it.type) }.toString()
             )
             Text(
@@ -170,7 +183,7 @@ fun MatchScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleMedium,
-                text = vm.scoreEvents.filter { it.teamIndex == 2 && it.halfIndex == 1 }
+                text = vm.scoreEvents.filter { it.teamId == vm.team2.id && it.halfIndex == 1 }
                     .sumOf { GetScoreTypePoints(it.type) }.toString()
             )
         }
@@ -183,8 +196,8 @@ fun MatchScreen(
                 isYellowActive = { vm.isYellowActive(it) },
                 isRedActive = { vm.isRedActive(it) },
                 yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
-                onPlayerTapped = { number ->
-                    uiState = MatchScreenUiState.ActionMenu(1, number)
+                onPlayerTapped = { playerId ->
+                    uiState = MatchScreenUiState.ActionMenu(vm.team1.id, playerId)
                 }
             )
             TeamColumn(
@@ -194,8 +207,8 @@ fun MatchScreen(
                 isYellowActive = { vm.isYellowActive(it) },
                 isRedActive = { vm.isRedActive(it) },
                 yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
-                onPlayerTapped = { number ->
-                    uiState = MatchScreenUiState.ActionMenu(2, number)
+                onPlayerTapped = { playerId ->
+                    uiState = MatchScreenUiState.ActionMenu(vm.team2.id, playerId)
                 }
             )
         }
@@ -223,8 +236,8 @@ fun MatchScreen(
                         Text(
                             "Select Action For ${
                                 selectedPlayer(
-                                    state.teamIndex,
-                                    state.playerNumber
+                                    state.teamId,
+                                    state.playerId
                                 )
                             }"
                         )
@@ -232,8 +245,8 @@ fun MatchScreen(
                         Button(
                             onClick = {
                                 uiState = MatchScreenUiState.ScorePick(
-                                    state.teamIndex,
-                                    state.playerNumber
+                                    state.teamId,
+                                    state.playerId
                                 )
                             }
                         ) {
@@ -243,16 +256,16 @@ fun MatchScreen(
                         Button(
                             onClick = {
                                 val subs = vm.getSubBatchPlayers()
-                                val usedOn = subs.map { it.playerOn }.toSet()
+                                val usedOn = subs.map { it.playerOnId }.toSet()
                                 val eligibleOn =
-                                    selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
+                                    selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
                                 if (eligibleOn.isEmpty())
-                                    uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                                    uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                                 else {
-                                    vm.startSubBatch(state.teamIndex)
+                                    vm.startSubBatch(state.teamId)
                                     uiState = MatchScreenUiState.SubPickOnPlayer(
-                                        state.teamIndex,
-                                        state.playerNumber
+                                        state.teamId,
+                                        state.playerId
                                     )
                                 }
                             }
@@ -263,8 +276,8 @@ fun MatchScreen(
                         Button(
                             onClick = {
                                 uiState = MatchScreenUiState.DiscPickType(
-                                    state.teamIndex,
-                                    state.playerNumber
+                                    state.teamId,
+                                    state.playerId
                                 )
                             }
                         ) {
@@ -277,10 +290,10 @@ fun MatchScreen(
 
         is MatchScreenUiState.ScorePick -> {
             ScoreDialogue(
-                teamName = selectedTeamName(state.teamIndex),
-                playerName = selectedPlayer(state.teamIndex, state.playerNumber),
+                teamName = selectedTeamName(state.teamId),
+                playerName = selectedPlayer(state.teamId, state.playerId),
                 onConfirm = { scoreType ->
-                    vm.recordScore(state.teamIndex, state.playerNumber, scoreType)
+                    vm.recordScore(state.teamId, state.playerId, scoreType)
                     dismissDialogue()
                 },
                 onDismiss = dismissDialogue
@@ -289,13 +302,13 @@ fun MatchScreen(
 
         is MatchScreenUiState.SubPickOnPlayer -> {
             val subs = vm.getSubBatchPlayers()
-            val usedOn = subs.map { it.playerOn }.toSet()
+            val usedOn = subs.map { it.playerOnId }.toSet()
             val eligibleOn =
-                selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
+                selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
             if (eligibleOn.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                     },
                     title = { Text("Substitutions") },
                     text = {
@@ -303,25 +316,25 @@ fun MatchScreen(
                     },
                     confirmButton = {
                         OutlinedButton(onClick = {
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                         }) { Text("Ok") }
                     },
                     dismissButton = {}
                 )
             } else {
                 SubstitutePlayerOnDialogue(
-                    offNumber = state.offNumber,
+                    playerOffLabel = playerLabel(state.teamId, state.playerOffId),
                     potentialSubs = eligibleOn,
-                    onConfirm = { onNumber ->
+                    onConfirm = { playerOnId ->
                         uiState = MatchScreenUiState.SubPickReason(
-                            teamIndex = state.teamIndex,
-                            offNumber = state.offNumber,
-                            onNumber = onNumber
+                            teamId = state.teamId,
+                            playerOffId = state.playerOffId,
+                            playerOnId = playerOnId
                         )
                     },
                     onDismiss = {
                         if (subs.size > 0)
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                         else
                             dismissDialogue()
                     }
@@ -332,12 +345,12 @@ fun MatchScreen(
         is MatchScreenUiState.SubPickReason -> {
             SubstituteReasonDialogue(
                 onConfirm = { subType ->
-                    vm.addPendingSub(state.offNumber, state.onNumber, subType)
-                    uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                    vm.addPendingSub(state.playerOffId, state.playerOnId, subType)
+                    uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                 },
                 onDismiss = {
                     if (vm.getSubBatchPlayers().size > 0)
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                     else
                         dismissDialogue()
                 }
@@ -346,9 +359,9 @@ fun MatchScreen(
 
         is MatchScreenUiState.SubBatchReview -> {
             val subs = vm.getSubBatchPlayers()
-            val usedOn = subs.map { it.playerOn }.toSet()
+            val usedOn = subs.map { it.playerOnId }.toSet()
             val eligibleOn =
-                selectedTeam(state.teamIndex).players.filter { !it.isOnField && it.number !in usedOn }
+                selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
             SubstituteSummaryDialogue(
                 subs = vm.getSubBatchPlayers(),
                 onConfirm = {
@@ -360,13 +373,15 @@ fun MatchScreen(
                     dismissDialogue()
                 },
                 onAddAnother = {
-                    uiState = MatchScreenUiState.SubPickOffPlayer(state.teamIndex)
+                    uiState = MatchScreenUiState.SubPickOffPlayer(state.teamId)
                 },
-                onRemove = { offNumber ->
-                    vm.removePendingSub(offNumber)
+                onRemove = { playerOffId ->
+                    vm.removePendingSub(playerOffId)
                 },
                 labelForSub = { sub ->
-                    "${sub.playerOff} → ${sub.playerOn} (${sub.type.label})"
+                    "${playerLabel(state.teamId, sub.playerOffId)} → " +
+                            "${playerLabel(state.teamId, sub.playerOnId)} " +
+                            "(${sub.type.label})"
                 },
                 eligibleOn = eligibleOn.isNotEmpty()
             )
@@ -374,13 +389,13 @@ fun MatchScreen(
 
         is MatchScreenUiState.SubPickOffPlayer -> {
             val subs = vm.getSubBatchPlayers()
-            val usedOff = subs.map { it.playerOff }.toSet()
+            val usedOff = subs.map { it.playerOffId }.toSet()
             val eligibleOff =
-                selectedTeam(state.teamIndex).players.filter { it.isOnField && it.number !in usedOff }
+                selectedTeam(state.teamId).players.filter { it.isOnField && it.id !in usedOff }
             if (eligibleOff.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                     },
                     title = { Text("Substitutions") },
                     text = {
@@ -388,7 +403,7 @@ fun MatchScreen(
                     },
                     confirmButton = {
                         OutlinedButton(onClick = {
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamIndex)
+                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                         }) { Text("Ok") }
                     },
                     dismissButton = {}
@@ -396,21 +411,21 @@ fun MatchScreen(
             } else {
                 SubstitutePlayerOffDialogue(
                     potentialPlayers = eligibleOff,
-                    onConfirm = { offNumber ->
-                        uiState = MatchScreenUiState.SubPickOnPlayer(state.teamIndex, offNumber)
+                    onConfirm = { playerOffId ->
+                        uiState = MatchScreenUiState.SubPickOnPlayer(state.teamId, playerOffId)
                     },
-                    onDismiss = { uiState = MatchScreenUiState.SubBatchReview(state.teamIndex) }
+                    onDismiss = { uiState = MatchScreenUiState.SubBatchReview(state.teamId) }
                 )
             }
         }
 
         is MatchScreenUiState.DiscPickType -> {
             DisciplineTypeDialogue(
-                playerName = selectedPlayer(state.teamIndex, state.playerNumber),
+                playerName = selectedPlayer(state.teamId, state.playerId),
                 onConfirm = { discType ->
                     uiState = MatchScreenUiState.DiscPickReason(
-                        teamIndex = state.teamIndex,
-                        playerNumber = state.playerNumber,
+                        teamId = state.teamId,
+                        playerId = state.playerId,
                         type = discType
                     )
                 },
@@ -424,8 +439,8 @@ fun MatchScreen(
                     DisciplineReasonYellowDialogue(
                         onConfirm = { reason ->
                             vm.recordDiscipline(
-                                state.teamIndex,
-                                state.playerNumber,
+                                state.teamId,
+                                state.playerId,
                                 state.type,
                                 reason
                             )
@@ -439,8 +454,8 @@ fun MatchScreen(
                     DisciplineReasonRedDialogue(
                         onConfirm = { reason ->
                             vm.recordDiscipline(
-                                state.teamIndex,
-                                state.playerNumber,
+                                state.teamId,
+                                state.playerId,
                                 state.type,
                                 reason
                             )
@@ -536,21 +551,21 @@ fun ScoreDialogue(
 
 @Composable
 fun SubstitutePlayerOnDialogue(
-    offNumber: Int,
+    playerOffLabel: String,
     potentialSubs: List<Player>,
-    onConfirm: (Int) -> Unit,
+    onConfirm: (PlayerId) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selected: Player? by remember { mutableStateOf(null) }
 
     SingleChoiceDialog(
         title = "Substitution",
-        prompt = "Substitute $offNumber for:",
+        prompt = "Substitute $playerOffLabel for:",
         options = potentialSubs,
         selected = selected,
         optionLabel = { player -> "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}" },
         onSelected = { selected = it },
-        onConfirm = { onConfirm(it.number) },
+        onConfirm = { onConfirm(it.id) },
         onDismiss = onDismiss
     )
 }
@@ -580,7 +595,7 @@ fun SubstituteSummaryDialogue(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     onAddAnother: () -> Unit,
-    onRemove: (Int) -> Unit,
+    onRemove: (PlayerId) -> Unit,
     labelForSub: (PendingSub) -> String,
     eligibleOn: Boolean
 ) {
@@ -590,7 +605,7 @@ fun SubstituteSummaryDialogue(
 @Composable
 fun SubstitutePlayerOffDialogue(
     potentialPlayers: List<Player>,
-    onConfirm: (Int) -> Unit,
+    onConfirm: (PlayerId) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selected: Player? by remember { mutableStateOf(null) }
@@ -602,7 +617,7 @@ fun SubstitutePlayerOffDialogue(
         selected = selected,
         optionLabel = { player -> "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}" },
         onSelected = { selected = it },
-        onConfirm = { onConfirm(it.number) },
+        onConfirm = { onConfirm(it.id) },
         onDismiss = onDismiss
     )
 }
@@ -676,7 +691,7 @@ private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when {
 fun TeamColumn(
     team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
     isYellowActive: (Player) -> Boolean, isRedActive: (Player) -> Boolean,
-    yellowLabel: (Player) -> String, onPlayerTapped: (Int) -> Unit
+    yellowLabel: (Player) -> String, onPlayerTapped: (PlayerId) -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -706,7 +721,7 @@ fun TeamColumn(
                         .fillMaxWidth()
                         .padding(vertical = 2.dp)
                         .then(
-                            if (!locked) Modifier.clickable { onPlayerTapped(player.number) }
+                            if (!locked) Modifier.clickable { onPlayerTapped(player.id) }
                             else Modifier
                         )
                 )

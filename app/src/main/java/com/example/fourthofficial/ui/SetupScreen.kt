@@ -124,7 +124,7 @@ private fun TeamColumn(team: Team, onSave: (Team) -> Unit, modifier: Modifier = 
             ) {
                 items(
                     count = editedPlayers.size,
-                    key = { idx -> idx }
+                    key = { idx -> editedPlayers[idx].id.value }
                 ) { i ->
                     EditPlayerRow(
                         index = i,

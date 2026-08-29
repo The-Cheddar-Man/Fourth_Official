@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
@@ -38,9 +40,6 @@ class MatchViewModel : ViewModel() {
     var clock by mutableStateOf(MatchClockState())
         private set
 
-    private var nextEventId: Int = 1
-    private fun newID() = nextEventId++
-
     var scoreEvents = mutableStateListOf<Score>()
         private set
 
@@ -67,7 +66,9 @@ class MatchViewModel : ViewModel() {
         get() = (halfDurationMs - clock.elapsedMs)
 
     fun defaultTeam(index: Int): Team = Team(
-        name = "", index = index, List(23) { i ->
+        name = "",
+        index = index,
+        players = List(23) { i ->
             val num = i + 1
             Player(
                 number = num, name = "", isOnField = i < 15, fieldPos = if (i < 15) num else null
@@ -82,46 +83,44 @@ class MatchViewModel : ViewModel() {
         team2 = updated
     }
 
-    fun recordScore(teamIndex: Int, playerNumber: Int, scoreType: ScoreType) {
+    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
         val t = halfElapsedMs
 
         scoreEvents.add(
             Score(
-                eventID = newID(),
                 timeMs = t,
-                teamIndex = teamIndex,
+                teamId = teamId,
                 halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
-                player = playerNumber,
+                playerId = playerId,
                 type = scoreType
             )
         )
     }
 
     private fun recordSub(
-        teamIndex: Int, offNumber: Int, onNumber: Int, reason: SubType, time: Long, halfIndex: Int
+        teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId, reason: SubType, time: Long, halfIndex: Int
     ) {
         subEvents.add(
             Substitution(
-                eventID = newID(),
                 timeMs = time,
-                teamIndex = teamIndex,
+                teamId = teamId,
                 halfIndex = halfIndex,
-                playerOff = offNumber,
-                playerOn = onNumber,
+                playerOffId = playerOffId,
+                playerOnId = playerOnId,
                 type = reason
             )
         )
     }
 
-    fun startSubBatch(teamIndex: Int) {
+    fun startSubBatch(teamId: TeamId) {
         val batch = subBatch
         if (batch != null) {
-            if (batch.teamIndex == teamIndex) return
+            if (batch.teamId == teamId) return
             subBatch = null
         }
 
         subBatch = SubBatchState(
-            teamIndex = teamIndex,
+            teamId = teamId,
             timeMs = halfElapsedMs,
             halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2
         )
@@ -130,40 +129,50 @@ class MatchViewModel : ViewModel() {
     fun applySubBatch() {
         val batch = subBatch ?: return
 
-        val team = if (batch.teamIndex == 1) team1 else team2
-        val playersOff = batch.pendingSubs.map { it.playerOff }.toSet()
-        val playersOn = batch.pendingSubs.map { it.playerOn }.toSet()
-
-        val playerByNumber = team.players.associateBy { it.number }
-        val offPositions = batch.pendingSubs.associate { sub ->
-            sub.playerOff to playerByNumber[sub.playerOff]?.fieldPos
+        val team = when (batch.teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return
         }
-        val onPositions = batch.pendingSubs.associate { it.playerOn to it.playerOff }
+        val playersOff = batch.pendingSubs.map { it.playerOffId }.toSet()
+        val playersOn = batch.pendingSubs.map { it.playerOnId }.toSet()
+
+        val playerById = team.players.associateBy { it.id }
+
+        val offPositions = batch.pendingSubs.associate { sub ->
+            sub.playerOffId to playerById[sub.playerOffId]?.fieldPos
+        }
+        val onPositions = batch.pendingSubs.associate { it.playerOnId to it.playerOffId }
 
         if (playersOff.any { offPositions[it] == null }) return
         if (playersOn.any { onPositions[it] == null }) return
 
-        val updatedPlayers = team.players.map { p ->
-            when {
-                playersOff.contains(p.number) -> p.copy(isOnField = false, fieldPos = null)
-                playersOn.contains(p.number) -> {
-                    val offNumber = onPositions[p.number]!!
-                    val pos = offPositions[offNumber]!!
-                    p.copy(isOnField = true, fieldPos = pos)
+        val updatedPlayers = team.players.map { player ->
+            when (player.id) {
+                in playersOff -> {
+                    player.copy(isOnField = false, fieldPos = null)
                 }
+                in playersOn -> {
+                    val playerOffId = onPositions[player.id]!!
+                    val position = offPositions[playerOffId]!!
 
-                else -> p
+                    player.copy(isOnField = true, fieldPos = position)
+                }
+                else -> player
             }
         }
 
         val updatedTeam = team.copy(players = updatedPlayers)
-        if (batch.teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+        when (batch.teamId) {
+            team1.id -> team1 = updatedTeam
+            team2.id -> team2 = updatedTeam
+        }
 
         for (sub in batch.pendingSubs) {
             recordSub(
-                batch.teamIndex,
-                sub.playerOff,
-                sub.playerOn,
+                batch.teamId,
+                sub.playerOffId,
+                sub.playerOnId,
                 sub.type,
                 batch.timeMs,
                 batch.halfIndex
@@ -172,18 +181,18 @@ class MatchViewModel : ViewModel() {
         subBatch = null
     }
 
-    fun addPendingSub(playerOff: Int, playerOn: Int, type: SubType) {
+    fun addPendingSub(playerOffId: PlayerId, playerOnId: PlayerId, type: SubType) {
         val batch = subBatch ?: return
-        if (playerOff == playerOn) return
-        if (batch.pendingSubs.find { it.playerOff == playerOff } != null) return
-        if (batch.pendingSubs.find { it.playerOn == playerOn } != null) return
+        if (playerOffId == playerOnId) return
+        if (batch.pendingSubs.find { it.playerOffId == playerOffId } != null) return
+        if (batch.pendingSubs.find { it.playerOnId == playerOnId } != null) return
         subBatch =
-            batch.copy(pendingSubs = batch.pendingSubs + PendingSub(playerOff, playerOn, type))
+            batch.copy(pendingSubs = batch.pendingSubs + PendingSub(playerOffId, playerOnId, type))
     }
 
-    fun removePendingSub(playerOff: Int) {
+    fun removePendingSub(playerOffId: PlayerId) {
         val batch = subBatch ?: return
-        val newPendingSubs = batch.pendingSubs.filterNot { it.playerOff == playerOff }
+        val newPendingSubs = batch.pendingSubs.filterNot { it.playerOffId == playerOffId }
         subBatch = batch.copy(pendingSubs = newPendingSubs)
         if (newPendingSubs.isEmpty()) subBatch = null
     }
@@ -196,29 +205,28 @@ class MatchViewModel : ViewModel() {
         subBatch = null
     }
 
-    fun recordDiscipline(teamIndex: Int, playerNumber: Int, type: DiscType, reason: DiscReason) {
+    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DiscType, reason: DiscReason) {
         val t = halfElapsedMs
 
         val finalType = if (type == DiscType.YELLOW && discEvents.any { event ->
-                event.teamIndex == teamIndex && event.player == playerNumber && event.type == DiscType.YELLOW
+                event.teamId == teamId && event.playerId == playerId && event.type == DiscType.YELLOW
             }) {
             DiscType.RED
         } else type
 
         discEvents.add(
             Discipline(
-                eventID = newID(),
                 timeMs = t,
-                teamIndex = teamIndex,
+                teamId = teamId,
                 halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
-                player = playerNumber,
+                playerId = playerId,
                 type = finalType,
                 reason = reason,
             )
         )
 
-        if (finalType == DiscType.YELLOW) applyYellow(teamIndex, playerNumber)
-        else applyRed(teamIndex, playerNumber)
+        if (finalType == DiscType.YELLOW) applyYellow(teamId, playerId)
+        else applyRed(teamId, playerId)
     }
 
     fun logHalf() {
@@ -253,31 +261,52 @@ class MatchViewModel : ViewModel() {
         return (until - halfElapsedMs).coerceAtLeast(0L)
     }
 
-    private fun applyYellow(teamIndex: Int, playerNumber: Int) {
-        val team = if (teamIndex == 1) team1 else team2
+    private fun applyYellow(teamId: TeamId, playerId: PlayerId) {
+        val team = when (teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return
+        }
         val until = halfElapsedMs + yellowDurationMs
 
         val updatedPlayers = team.players.map { player ->
-            if (player.number == playerNumber) player.copy(yellowUntilHalfMs = until) else player
+            if (player.id == playerId) {
+                player.copy(yellowUntilHalfMs = until)
+            }
+            else {
+                player
+            }
         }
         val updatedTeam = team.copy(players = updatedPlayers)
-        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+        when (teamId) {
+            team1.id -> team1 = updatedTeam
+            team2.id -> team2 = updatedTeam
+        }
     }
 
-    private fun applyRed(teamIndex: Int, playerNumber: Int) {
-        val team = if (teamIndex == 1) team1 else team2
+    private fun applyRed(teamId: TeamId, playerId: PlayerId) {
+        val team = when (teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return
+        }
 
         val updatedPlayers = team.players.map { player ->
-            if (player.number == playerNumber) {
+            if (player.id == playerId) {
                 player.copy(
                     isRedCarded = true,
                     yellowUntilHalfMs = null,
                 )
-            } else player
+            } else {
+                player
+            }
         }
 
         val updatedTeam = team.copy(players = updatedPlayers)
-        if (teamIndex == 1) team1 = updatedTeam else team2 = updatedTeam
+        when (teamId) {
+            team1.id -> team1 = updatedTeam
+            team2.id -> team2 = updatedTeam
+        }
     }
 
     fun isYellowActive(player: Player): Boolean {
