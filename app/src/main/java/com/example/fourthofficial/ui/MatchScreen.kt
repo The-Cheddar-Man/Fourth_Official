@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscReasonRed
 import com.example.fourthofficial.model.DiscReasonYellow
@@ -193,9 +194,7 @@ fun MatchScreen(
                 team = vm.team1,
                 modifier = Modifier.weight(1f),
                 vm = vm,
-                isYellowActive = { vm.isYellowActive(it) },
-                isRedActive = { vm.isRedActive(it) },
-                yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
+                playerStates = vm.team1PlayerStates,
                 onPlayerTapped = { playerId ->
                     uiState = MatchScreenUiState.ActionMenu(vm.team1.id, playerId)
                 }
@@ -204,9 +203,7 @@ fun MatchScreen(
                 team = vm.team2,
                 modifier = Modifier.weight(1f),
                 vm = vm,
-                isYellowActive = { vm.isYellowActive(it) },
-                isRedActive = { vm.isRedActive(it) },
-                yellowLabel = { player -> vm.formatClock(vm.yellowRemainingMs(player), false) },
+                playerStates = vm.team2PlayerStates,
                 onPlayerTapped = { playerId ->
                     uiState = MatchScreenUiState.ActionMenu(vm.team2.id, playerId)
                 }
@@ -257,8 +254,17 @@ fun MatchScreen(
                             onClick = {
                                 val subs = vm.getSubBatchPlayers()
                                 val usedOn = subs.map { it.playerOnId }.toSet()
+
                                 val eligibleOn =
-                                    selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
+                                    selectedTeam(state.teamId).players.filter { player ->
+                                        val playerState = vm.getPlayerState(state.teamId, player.id)
+
+                                        playerState != null &&
+                                                !playerState.isOnField &&
+                                                !vm.isYellowActive(playerState) &&
+                                                !vm.isRedActive(playerState) &&
+                                                player.id !in usedOn
+                                        }
                                 if (eligibleOn.isEmpty())
                                     uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                                 else {
@@ -304,7 +310,15 @@ fun MatchScreen(
             val subs = vm.getSubBatchPlayers()
             val usedOn = subs.map { it.playerOnId }.toSet()
             val eligibleOn =
-                selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
+                selectedTeam(state.teamId).players.filter { player ->
+                    val playerState = vm.getPlayerState(state.teamId, player.id)
+
+                    playerState != null &&
+                            !playerState.isOnField &&
+                            !vm.isYellowActive(playerState) &&
+                            !vm.isRedActive(playerState) &&
+                            player.id !in usedOn
+                }
             if (eligibleOn.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
@@ -361,7 +375,15 @@ fun MatchScreen(
             val subs = vm.getSubBatchPlayers()
             val usedOn = subs.map { it.playerOnId }.toSet()
             val eligibleOn =
-                selectedTeam(state.teamId).players.filter { !it.isOnField && it.id !in usedOn }
+                selectedTeam(state.teamId).players.filter { player ->
+                    val playerState = vm.getPlayerState(state.teamId, player.id)
+
+                    playerState != null &&
+                            !playerState.isOnField &&
+                            !vm.isYellowActive(playerState) &&
+                            !vm.isRedActive(playerState) &&
+                            player.id !in usedOn
+                }
             SubstituteSummaryDialogue(
                 subs = vm.getSubBatchPlayers(),
                 onConfirm = {
@@ -391,7 +413,15 @@ fun MatchScreen(
             val subs = vm.getSubBatchPlayers()
             val usedOff = subs.map { it.playerOffId }.toSet()
             val eligibleOff =
-                selectedTeam(state.teamId).players.filter { it.isOnField && it.id !in usedOff }
+                selectedTeam(state.teamId).players.filter { player ->
+                    val playerState = vm.getPlayerState(state.teamId, player.id)
+
+                    playerState != null &&
+                            playerState.isOnField &&
+                            !vm.isYellowActive(playerState) &&
+                            !vm.isRedActive(playerState) &&
+                            player.id !in usedOff
+                }
             if (eligibleOff.isEmpty()) {
                 AlertDialog(
                     onDismissRequest = {
@@ -482,6 +512,7 @@ fun MatchScreen(
                         vm.resetScores()
                         vm.resetSubs()
                         vm.resetDiscs()
+                        vm.resetPlayerStates()
                         showResetDialog = false
                     }
                 ) {
@@ -690,17 +721,20 @@ private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when {
 @Composable
 fun TeamColumn(
     team: Team, modifier: Modifier = Modifier, vm: MatchViewModel,
-    isYellowActive: (Player) -> Boolean, isRedActive: (Player) -> Boolean,
-    yellowLabel: (Player) -> String, onPlayerTapped: (PlayerId) -> Unit
+    playerStates: Map<PlayerId, MatchPlayerState>, onPlayerTapped: (PlayerId) -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.padding(5.dp)
     )
     {
-        val onField = team.players
-            .filter { it.isOnField }
-            .sortedBy { it.fieldPos ?: 999 }
+        val onField = team.players.mapNotNull { player ->
+                playerStates[player.id]?.let { state -> player to state }
+            }.filter { (_, state) ->
+                state.isOnField
+            }.sortedBy { (_, state) ->
+                state.fieldPos ?: 999
+            }
 
         LazyColumn {
             item {
@@ -712,10 +746,10 @@ fun TeamColumn(
                 }
             }
             items(onField.size) { i ->
-                val player = onField[i]
-                val locked = isYellowActive(player) || isRedActive(player) || !vm.isClockRunning()
+                val (player, state) = onField[i]
+                val locked = vm.isYellowActive(state) || vm.isRedActive(state) || !vm.isClockRunning()
                 Surface(
-                    color = playerTileColor(isYellowActive(player), isRedActive(player)),
+                    color = playerTileColor(vm.isYellowActive(state), vm.isRedActive(state)),
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -730,10 +764,12 @@ fun TeamColumn(
                     {
                         Text("${player.number}. ${player.name}")
 
-                        if (isYellowActive(player)) {
-                            Text("Yellow: ${yellowLabel(player)}")
+                        if (vm.isYellowActive(state)) {
+                            Text("Yellow: ${
+                                vm.formatClock(vm.yellowRemainingMs(state),false)}"
+                            )
                         }
-                        if (isRedActive(player)) {
+                        if (vm.isRedActive(state)) {
                             Text("Red")
                         }
                     }

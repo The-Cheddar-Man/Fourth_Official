@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
@@ -35,6 +36,12 @@ class MatchViewModel : ViewModel() {
         private set
 
     var team2 by mutableStateOf(defaultTeam(2))
+        private set
+
+    var team1PlayerStates by mutableStateOf(defaultPlayerStates(team1))
+        private set
+
+    var team2PlayerStates by mutableStateOf(defaultPlayerStates(team2))
         private set
 
     var clock by mutableStateOf(MatchClockState())
@@ -71,9 +78,39 @@ class MatchViewModel : ViewModel() {
         players = List(23) { i ->
             val num = i + 1
             Player(
-                number = num, name = "", isOnField = i < 15, fieldPos = if (i < 15) num else null
+                number = num, name = ""
             )
         })
+
+    private fun defaultPlayerStates(team: Team): Map<PlayerId, MatchPlayerState> {
+        return team.players.mapIndexed { index, player ->
+                player.id to MatchPlayerState(
+                    playerId = player.id,
+                    isOnField = index < 15,
+                    fieldPos = if (index < 15) index + 1 else null)
+            }.toMap()
+    }
+
+    fun getPlayerState(teamId: TeamId, playerId: PlayerId): MatchPlayerState? {
+        val states = when (teamId) {
+            team1.id -> team1PlayerStates
+            team2.id -> team2PlayerStates
+            else -> return null
+        }
+        return states[playerId]
+    }
+
+    private fun updatePlayerStates(teamId: TeamId, states: Map<PlayerId, MatchPlayerState>) {
+        when (teamId) {
+            team1.id -> team1PlayerStates = states
+            team2.id -> team2PlayerStates = states
+        }
+    }
+
+    fun resetPlayerStates() {
+        team1PlayerStates = defaultPlayerStates(team1)
+        team2PlayerStates = defaultPlayerStates(team2)
+    }
 
     fun updateTeam1(updated: Team) {
         team1 = updated
@@ -128,45 +165,34 @@ class MatchViewModel : ViewModel() {
 
     fun applySubBatch() {
         val batch = subBatch ?: return
-
-        val team = when (batch.teamId) {
-            team1.id -> team1
-            team2.id -> team2
+        val teamStates = when (batch.teamId) {
+            team1.id -> team1PlayerStates
+            team2.id -> team2PlayerStates
             else -> return
         }
-        val playersOff = batch.pendingSubs.map { it.playerOffId }.toSet()
-        val playersOn = batch.pendingSubs.map { it.playerOnId }.toSet()
+        var updatedStates = teamStates
 
-        val playerById = team.players.associateBy { it.id }
+        for (sub in batch.pendingSubs) {
+            val playerOffState = updatedStates[sub.playerOffId] ?: return
+            val playerOnState = updatedStates[sub.playerOnId] ?: return
 
-        val offPositions = batch.pendingSubs.associate { sub ->
-            sub.playerOffId to playerById[sub.playerOffId]?.fieldPos
-        }
-        val onPositions = batch.pendingSubs.associate { it.playerOnId to it.playerOffId }
+            if (!playerOffState.isOnField) return
+            if (playerOnState.isOnField) return
 
-        if (playersOff.any { offPositions[it] == null }) return
-        if (playersOn.any { onPositions[it] == null }) return
+            val position = playerOffState.fieldPos ?: return
 
-        val updatedPlayers = team.players.map { player ->
-            when (player.id) {
-                in playersOff -> {
-                    player.copy(isOnField = false, fieldPos = null)
-                }
-                in playersOn -> {
-                    val playerOffId = onPositions[player.id]!!
-                    val position = offPositions[playerOffId]!!
-
-                    player.copy(isOnField = true, fieldPos = position)
-                }
-                else -> player
-            }
+            updatedStates = updatedStates +
+                    (sub.playerOffId to playerOffState.copy(
+                        isOnField = false,
+                        fieldPos = null
+                    )) +
+                    (sub.playerOnId to playerOnState.copy(
+                        isOnField = true,
+                        fieldPos = position
+                    ))
         }
 
-        val updatedTeam = team.copy(players = updatedPlayers)
-        when (batch.teamId) {
-            team1.id -> team1 = updatedTeam
-            team2.id -> team2 = updatedTeam
-        }
+        updatePlayerStates(batch.teamId, updatedStates)
 
         for (sub in batch.pendingSubs) {
             recordSub(
@@ -178,6 +204,7 @@ class MatchViewModel : ViewModel() {
                 batch.halfIndex
             )
         }
+
         subBatch = null
     }
 
@@ -256,79 +283,60 @@ class MatchViewModel : ViewModel() {
 
     private val yellowDurationMs = 10L * 60L * 1000L
 
-    fun yellowRemainingMs(player: Player): Long {
-        val until = player.yellowUntilHalfMs ?: return 0L
+    fun yellowRemainingMs(state: MatchPlayerState): Long {
+        val until = state.yellowUntilHalfMs ?: return 0L
         return (until - halfElapsedMs).coerceAtLeast(0L)
     }
 
     private fun applyYellow(teamId: TeamId, playerId: PlayerId) {
-        val team = when (teamId) {
-            team1.id -> team1
-            team2.id -> team2
+        val teamStates = when (teamId) {
+            team1.id -> team1PlayerStates
+            team2.id -> team2PlayerStates
             else -> return
         }
-        val until = halfElapsedMs + yellowDurationMs
 
-        val updatedPlayers = team.players.map { player ->
-            if (player.id == playerId) {
-                player.copy(yellowUntilHalfMs = until)
-            }
-            else {
-                player
-            }
-        }
-        val updatedTeam = team.copy(players = updatedPlayers)
-        when (teamId) {
-            team1.id -> team1 = updatedTeam
-            team2.id -> team2 = updatedTeam
-        }
+        val state = teamStates[playerId] ?: return
+        val until = halfElapsedMs + yellowDurationMs
+        val updatedState = state.copy(yellowUntilHalfMs = until)
+
+        updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
 
     private fun applyRed(teamId: TeamId, playerId: PlayerId) {
-        val team = when (teamId) {
-            team1.id -> team1
-            team2.id -> team2
+        val teamStates = when (teamId) {
+            team1.id -> team1PlayerStates
+            team2.id -> team2PlayerStates
             else -> return
         }
 
-        val updatedPlayers = team.players.map { player ->
-            if (player.id == playerId) {
-                player.copy(
-                    isRedCarded = true,
-                    yellowUntilHalfMs = null,
-                )
-            } else {
-                player
-            }
-        }
-
-        val updatedTeam = team.copy(players = updatedPlayers)
-        when (teamId) {
-            team1.id -> team1 = updatedTeam
-            team2.id -> team2 = updatedTeam
-        }
+        val state = teamStates[playerId] ?: return
+        val updatedState = state.copy(isRedCarded = true, yellowUntilHalfMs = null)
+        updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
 
-    fun isYellowActive(player: Player): Boolean {
-        val until = player.yellowUntilHalfMs ?: return false
+    fun isYellowActive(state: MatchPlayerState): Boolean {
+        val until = state.yellowUntilHalfMs ?: return false
         return halfElapsedMs < until
     }
 
-    fun isRedActive(player: Player): Boolean {
-        return player.isRedCarded
+    fun isRedActive(state: MatchPlayerState): Boolean {
+        return state.isRedCarded
     }
 
     private fun clearAllCards() {
-        team1 = team1.copy(players = team1.players.map {
-            it.copy(
-                yellowUntilHalfMs = null, isRedCarded = false
+        team1PlayerStates = team1PlayerStates.mapValues { (_, state) ->
+            state.copy(
+                yellowUntilHalfMs = null,
+                isRedCarded = false
             )
-        })
-        team2 = team2.copy(players = team2.players.map {
-            it.copy(
-                yellowUntilHalfMs = null, isRedCarded = false
+        }
+
+        team2PlayerStates = team2PlayerStates.mapValues { (_, state) ->
+            state.copy(
+                yellowUntilHalfMs = null,
+                isRedCarded = false
             )
-        })
+        }
     }
 
     private var startRealtimeMs: Long = 0L
