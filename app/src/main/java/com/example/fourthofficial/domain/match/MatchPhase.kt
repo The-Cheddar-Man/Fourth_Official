@@ -7,9 +7,3 @@ enum class MatchPhase {
     SECOND_HALF,
     FINISHED
 }
-
-data class MatchClock(
-    val isRunning: Boolean = false,
-    val halfElapsedMs: Long = 0L,
-    val totalElapsedMs: Long = 0L
-)
