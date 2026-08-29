@@ -30,8 +30,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.fourthofficial.model.Player
-import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable

@@ -28,7 +28,7 @@ import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.Substitution
-import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.components.DataTable
 import com.example.fourthofficial.ui.components.TableColumn
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel

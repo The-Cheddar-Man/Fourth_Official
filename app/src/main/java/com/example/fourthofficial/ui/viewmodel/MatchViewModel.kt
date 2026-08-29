@@ -16,13 +16,13 @@ import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
 import com.example.fourthofficial.model.PendingSub
-import com.example.fourthofficial.model.Player
+import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.model.Score
 import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.model.SubBatchState
 import com.example.fourthofficial.model.SubType
 import com.example.fourthofficial.model.Substitution
-import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.domain.team.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

@@ -40,10 +40,10 @@ import com.example.fourthofficial.model.DiscReasonYellow
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.GetScoreTypePoints
 import com.example.fourthofficial.model.PendingSub
-import com.example.fourthofficial.model.Player
+import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.model.ScoreType
 import com.example.fourthofficial.model.SubType
-import com.example.fourthofficial.model.Team
+import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.components.MatchScreenUiState
 import com.example.fourthofficial.ui.components.SingleChoiceDialog
 import com.example.fourthofficial.ui.components.SubBatchReviewDialog

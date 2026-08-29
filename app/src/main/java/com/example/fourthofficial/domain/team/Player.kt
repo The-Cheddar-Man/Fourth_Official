@@ -1,4 +1,4 @@
-package com.example.fourthofficial.model
+package com.example.fourthofficial.domain.team
 
 import com.example.fourthofficial.domain.id.PlayerId
 
