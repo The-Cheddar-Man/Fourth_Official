@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscReasonRed
@@ -48,6 +49,12 @@ import com.example.fourthofficial.ui.components.SingleChoiceDialog
 import com.example.fourthofficial.ui.components.SubBatchReviewDialog
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
+enum class ClockDisplayMode {
+    RUGBY,
+    HALF,
+    TOTAL
+}
+
 @Composable
 fun MatchScreen(
     modifier: Modifier = Modifier,
@@ -57,6 +64,13 @@ fun MatchScreen(
     val dismissDialogue = { uiState = MatchScreenUiState.None }
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogHalfDialog by remember { mutableStateOf(false) }
+    var clockDisplayMode by remember { mutableStateOf(ClockDisplayMode.RUGBY) }
+
+    val elapsedToDisplay = when (clockDisplayMode) {
+        ClockDisplayMode.RUGBY -> vm.displayElapsedMs
+        ClockDisplayMode.HALF -> vm.clock.halfElapsedMs
+        ClockDisplayMode.TOTAL -> vm.totalDisplayElapsedMs
+    }
 
     val selectedTeam = { teamId: TeamId -> when(teamId){
         vm.team1.id -> vm.team1
@@ -87,7 +101,11 @@ fun MatchScreen(
                 .fillMaxWidth()
         ) {
             Text(
-                "Elapsed Time",
+                when (clockDisplayMode){
+                    ClockDisplayMode.RUGBY -> "Elapsed Time"
+                    ClockDisplayMode.HALF -> "Half Elapsed Time"
+                    ClockDisplayMode.TOTAL -> "Total Elapsed Time"
+                },
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleLarge
@@ -104,8 +122,13 @@ fun MatchScreen(
                 .fillMaxWidth()
         ) {
             Text(
-                vm.formatClock(vm.halfElapsedMs, false),
-                modifier = Modifier.weight(1f),
+                vm.formatClock(elapsedToDisplay, false),
+                modifier = Modifier.weight(1f).clickable {
+                    clockDisplayMode = when (clockDisplayMode) {
+                        ClockDisplayMode.RUGBY -> ClockDisplayMode.HALF
+                        ClockDisplayMode.HALF -> ClockDisplayMode.TOTAL
+                        ClockDisplayMode.TOTAL -> ClockDisplayMode.RUGBY
+                    }},
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.displayMedium
             )
@@ -131,9 +154,15 @@ fun MatchScreen(
             }
             Button(
                 onClick = { showLogHalfDialog = true },
+                enabled = vm.phase != MatchPhase.FINISHED,
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Log Half")
+                Text(when (vm.phase) {
+                        MatchPhase.SECOND_HALF -> "End Match"
+                        MatchPhase.FINISHED -> "Match Finished"
+                        else -> "Log Half"
+                    }
+                )
             }
         }
 
@@ -529,23 +558,43 @@ fun MatchScreen(
         )
     }
     if (showLogHalfDialog) {
-        val canLogHalf =
-            (vm.clock.elapsedMs >= 40L * 60L * 1000L) && (vm.halfTimeMs.longValue == 0L)
+        val canFinishHalf =
+            when (vm.phase) {
+                MatchPhase.FIRST_HALF,
+                MatchPhase.SECOND_HALF ->
+                    vm.clock.halfElapsedMs >= vm.halfDurationMs
+
+                else -> false
+            }
+
+        val finishingMatch = vm.phase == MatchPhase.SECOND_HALF
+
         AlertDialog(
             onDismissRequest = { showLogHalfDialog = false },
-            title = { Text("Log Half") },
+            title = { Text(if (finishingMatch) "End Match" else "Log Half") },
             text = {
-                Text(if (canLogHalf) "Log Half?" else "It is not half time!")
+                Text(when {
+                    !canFinishHalf ->
+                        "This half is not over!"
+                    finishingMatch ->
+                        "End the match?"
+                    else ->
+                        "Log the first half?"
+                })
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        vm.logHalf()
+                        when (vm.phase) {
+                            MatchPhase.FIRST_HALF -> vm.logHalf()
+                            MatchPhase.SECOND_HALF -> vm.endMatch()
+                            else -> Unit
+                        }
                         showLogHalfDialog = false
                     },
-                    enabled = canLogHalf
+                    enabled = canFinishHalf
                 ) {
-                    Text("Yes, Log")
+                    Text(if (finishingMatch) "End Match" else "Log Half")
                 }
             },
             dismissButton = {

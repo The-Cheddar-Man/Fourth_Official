@@ -2,7 +2,6 @@ package com.example.fourthofficial.ui.viewmodel
 
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,6 +9,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchClock
+import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
@@ -26,11 +27,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-data class MatchClockState(
-    val isRunning: Boolean = false, val elapsedMs: Long = 0L
-)
-
 class MatchViewModel : ViewModel() {
+
+    //==================
+    //      TEAM
+    //==================
 
     var team1 by mutableStateOf(defaultTeam(1))
         private set
@@ -43,34 +44,6 @@ class MatchViewModel : ViewModel() {
 
     var team2PlayerStates by mutableStateOf(defaultPlayerStates(team2))
         private set
-
-    var clock by mutableStateOf(MatchClockState())
-        private set
-
-    var scoreEvents = mutableStateListOf<Score>()
-        private set
-
-    var subEvents = mutableStateListOf<Substitution>()
-        private set
-
-    var subBatch by mutableStateOf<SubBatchState?>(null)
-        private set
-
-    var discEvents = mutableStateListOf<Discipline>()
-        private set
-
-    var halfTimeMs = mutableLongStateOf(0L)
-        private set
-
-    private val halfDurationMs = 40L * 60L * 1000L
-
-    private var matchOffsetMs by mutableLongStateOf(0L)
-
-    val halfElapsedMs: Long
-        get() = matchOffsetMs + clock.elapsedMs
-
-    val halfRemainingMs: Long
-        get() = (halfDurationMs - clock.elapsedMs)
 
     fun defaultTeam(index: Int): Team = Team(
         name = "",
@@ -107,11 +80,6 @@ class MatchViewModel : ViewModel() {
         }
     }
 
-    fun resetPlayerStates() {
-        team1PlayerStates = defaultPlayerStates(team1)
-        team2PlayerStates = defaultPlayerStates(team2)
-    }
-
     fun updateTeam1(updated: Team) {
         team1 = updated
     }
@@ -120,19 +88,44 @@ class MatchViewModel : ViewModel() {
         team2 = updated
     }
 
-    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
-        val t = halfElapsedMs
+    fun resetPlayerStates() {
+        team1PlayerStates = defaultPlayerStates(team1)
+        team2PlayerStates = defaultPlayerStates(team2)
+    }
 
+    //==================
+    //      SCORE
+    //==================
+
+    var scoreEvents = mutableStateListOf<Score>()
+        private set
+
+    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
         scoreEvents.add(
             Score(
-                timeMs = t,
+                timeMs = displayElapsedMs,
                 teamId = teamId,
-                halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
+                halfIndex = currentHalf,
                 playerId = playerId,
                 type = scoreType
             )
         )
     }
+
+    fun resetScores() {
+        scoreEvents.clear()
+    }
+
+    //==================
+    //      SUBS
+    //==================
+
+
+    var subEvents = mutableStateListOf<Substitution>()
+        private set
+
+    var subBatch by mutableStateOf<SubBatchState?>(null)
+        private set
 
     private fun recordSub(
         teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId, reason: SubType, time: Long, halfIndex: Int
@@ -158,8 +151,8 @@ class MatchViewModel : ViewModel() {
 
         subBatch = SubBatchState(
             teamId = teamId,
-            timeMs = halfElapsedMs,
-            halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2
+            timeMs = displayElapsedMs,
+            halfIndex = currentHalf
         )
     }
 
@@ -232,9 +225,22 @@ class MatchViewModel : ViewModel() {
         subBatch = null
     }
 
-    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DiscType, reason: DiscReason) {
-        val t = halfElapsedMs
+    fun resetSubs() {
+        subEvents.clear()
+        subBatch = null
+    }
 
+    //==================
+    //      CARDS
+    //==================
+
+
+    var discEvents = mutableStateListOf<Discipline>()
+        private set
+
+    private val yellowDurationMs = 10L * 60L * 1000L
+
+    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DiscType, reason: DiscReason) {
         val finalType = if (type == DiscType.YELLOW && discEvents.any { event ->
                 event.teamId == teamId && event.playerId == playerId && event.type == DiscType.YELLOW
             }) {
@@ -243,9 +249,9 @@ class MatchViewModel : ViewModel() {
 
         discEvents.add(
             Discipline(
-                timeMs = t,
+                timeMs = displayElapsedMs,
                 teamId = teamId,
-                halfIndex = if (halfTimeMs.longValue == 0L) 1 else 2,
+                halfIndex = currentHalf,
                 playerId = playerId,
                 type = finalType,
                 reason = reason,
@@ -256,38 +262,6 @@ class MatchViewModel : ViewModel() {
         else applyRed(teamId, playerId)
     }
 
-    fun logHalf() {
-        if (clock.elapsedMs < halfDurationMs) return
-
-        halfTimeMs.longValue = halfElapsedMs
-        matchOffsetMs = halfDurationMs
-        tickerJob?.cancel()
-        tickerJob = null
-        baseElapsedMs = 0L
-        clock = MatchClockState()
-    }
-
-    fun resetScores() {
-        scoreEvents.clear()
-    }
-
-    fun resetSubs() {
-        subEvents.clear()
-        subBatch = null
-    }
-
-    fun resetDiscs() {
-        discEvents.clear()
-        clearAllCards()
-    }
-
-    private val yellowDurationMs = 10L * 60L * 1000L
-
-    fun yellowRemainingMs(state: MatchPlayerState): Long {
-        val until = state.yellowUntilHalfMs ?: return 0L
-        return (until - halfElapsedMs).coerceAtLeast(0L)
-    }
-
     private fun applyYellow(teamId: TeamId, playerId: PlayerId) {
         val teamStates = when (teamId) {
             team1.id -> team1PlayerStates
@@ -296,8 +270,8 @@ class MatchViewModel : ViewModel() {
         }
 
         val state = teamStates[playerId] ?: return
-        val until = halfElapsedMs + yellowDurationMs
-        val updatedState = state.copy(yellowUntilHalfMs = until)
+        val until = clock.totalElapsedMs + yellowDurationMs
+        val updatedState = state.copy(yellowUntilPlayingMs = until)
 
         updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
@@ -310,13 +284,18 @@ class MatchViewModel : ViewModel() {
         }
 
         val state = teamStates[playerId] ?: return
-        val updatedState = state.copy(isRedCarded = true, yellowUntilHalfMs = null)
+        val updatedState = state.copy(isRedCarded = true, yellowUntilPlayingMs = null)
         updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }
 
     fun isYellowActive(state: MatchPlayerState): Boolean {
-        val until = state.yellowUntilHalfMs ?: return false
-        return halfElapsedMs < until
+        val until = state.yellowUntilPlayingMs ?: return false
+        return clock.totalElapsedMs < until
+    }
+
+    fun yellowRemainingMs(state: MatchPlayerState): Long {
+        val until = state.yellowUntilPlayingMs ?: return 0L
+        return (until - clock.totalElapsedMs).coerceAtLeast(0L)
     }
 
     fun isRedActive(state: MatchPlayerState): Boolean {
@@ -326,32 +305,65 @@ class MatchViewModel : ViewModel() {
     private fun clearAllCards() {
         team1PlayerStates = team1PlayerStates.mapValues { (_, state) ->
             state.copy(
-                yellowUntilHalfMs = null,
+                yellowUntilPlayingMs = null,
                 isRedCarded = false
             )
         }
 
         team2PlayerStates = team2PlayerStates.mapValues { (_, state) ->
             state.copy(
-                yellowUntilHalfMs = null,
+                yellowUntilPlayingMs = null,
                 isRedCarded = false
             )
         }
     }
 
+    fun resetDiscs() {
+        discEvents.clear()
+        clearAllCards()
+    }
+
+    //==================
+    //      CLOCK
+    //==================
+
+
+    val halfDurationMs = 40L * 60L * 1000L
     private var startRealtimeMs: Long = 0L
-    private var baseElapsedMs: Long = 0L
+    private var baseHalfElapsedMs: Long = 0L
+    private var baseTotalElapsedMs: Long = 0L
     private var tickerJob: Job? = null
 
-    fun toggleClock() {
-        if (clock.isRunning) stopClock() else startClock()
-    }
+    var clock by mutableStateOf(MatchClock())
+        private set
+
+    var phase by mutableStateOf(MatchPhase.NOT_STARTED)
+        private set
+
+    val currentHalf: Int
+        get() = when (phase) {
+            MatchPhase.FIRST_HALF -> 1
+            MatchPhase.SECOND_HALF -> 2
+            else -> 0
+        }
+
+    val halfRemainingMs: Long
+        get() = (halfDurationMs - clock.halfElapsedMs).coerceAtLeast(0L)
 
     fun startClock() {
         if (clock.isRunning) return
 
-        baseElapsedMs = clock.elapsedMs
+        when (phase) {
+            MatchPhase.NOT_STARTED -> { phase = MatchPhase.FIRST_HALF }
+            MatchPhase.HALF_TIME -> { phase = MatchPhase.SECOND_HALF }
+            MatchPhase.FINISHED -> return
+            else -> Unit
+        }
+
+        baseHalfElapsedMs = clock.halfElapsedMs
+        baseTotalElapsedMs = clock.totalElapsedMs
         startRealtimeMs = SystemClock.elapsedRealtime()
+
         clock = clock.copy(isRunning = true)
 
         tickerJob?.cancel()
@@ -359,7 +371,12 @@ class MatchViewModel : ViewModel() {
             while (true) {
                 val now = SystemClock.elapsedRealtime()
                 val runningMs = now - startRealtimeMs
-                clock = clock.copy(elapsedMs = baseElapsedMs + runningMs)
+
+                clock = clock.copy(
+                    halfElapsedMs = baseHalfElapsedMs + runningMs,
+                    totalElapsedMs = baseTotalElapsedMs + runningMs
+                )
+
                 delay(100)
             }
         }
@@ -374,9 +391,40 @@ class MatchViewModel : ViewModel() {
         tickerJob?.cancel()
         tickerJob = null
 
-        clock = MatchClockState(
-            isRunning = false, elapsedMs = baseElapsedMs + runningMs
+        clock = clock.copy(
+            isRunning = false,
+            halfElapsedMs = baseHalfElapsedMs + runningMs,
+            totalElapsedMs = baseTotalElapsedMs + runningMs
         )
+    }
+
+    fun toggleClock() {
+        if (clock.isRunning) stopClock() else startClock()
+    }
+
+    fun logHalf() {
+        if (phase != MatchPhase.FIRST_HALF) return
+        if (clock.halfElapsedMs < halfDurationMs) return
+
+        stopClock()
+
+        phase = MatchPhase.HALF_TIME
+
+        clock = clock.copy(
+            isRunning = false,
+            halfElapsedMs = 0L
+        )
+
+        baseHalfElapsedMs = 0L
+    }
+
+    fun endMatch() {
+        if (phase != MatchPhase.SECOND_HALF) return
+        if (clock.halfElapsedMs < halfDurationMs) return
+
+        stopClock()
+
+        phase = MatchPhase.FINISHED
     }
 
     fun isClockRunning(): Boolean {
@@ -386,10 +434,13 @@ class MatchViewModel : ViewModel() {
     fun resetClock() {
         tickerJob?.cancel()
         tickerJob = null
-        baseElapsedMs = 0L
-        clock = MatchClockState()
-        matchOffsetMs = 0L
-        halfTimeMs.longValue = 0L
+
+        startRealtimeMs = 0L
+        baseHalfElapsedMs = 0L
+        baseTotalElapsedMs = 0L
+
+        clock = MatchClock()
+        phase = MatchPhase.NOT_STARTED
     }
 
     fun formatClock(ms: Long, remaining: Boolean): String {
@@ -402,4 +453,32 @@ class MatchViewModel : ViewModel() {
         val seconds = totalSeconds % 60
         return "%02d:%02d".format(minutes, seconds)
     }
+
+    val displayElapsedMs: Long
+        get() = when (phase) {
+            MatchPhase.NOT_STARTED -> 0L
+
+            MatchPhase.FIRST_HALF ->
+                clock.halfElapsedMs
+
+            MatchPhase.HALF_TIME ->
+                halfDurationMs
+
+            MatchPhase.SECOND_HALF ->
+                halfDurationMs + clock.halfElapsedMs
+
+            MatchPhase.FINISHED ->
+                halfDurationMs + clock.halfElapsedMs
+        }
+
+    val totalDisplayElapsedMs: Long
+        get() {
+            val completedPlayingMs =
+                clock.totalElapsedMs - clock.halfElapsedMs
+
+            val completedWholeSeconds =
+                (completedPlayingMs / 1000L) * 1000L
+
+            return completedWholeSeconds + clock.halfElapsedMs
+        }
 }
