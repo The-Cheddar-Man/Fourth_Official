@@ -2,7 +2,6 @@ package com.example.fourthofficial.ui.viewmodel
 
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -12,6 +11,8 @@ import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
+import com.example.fourthofficial.domain.match.MatchState
+import com.example.fourthofficial.domain.match.MatchTeamState
 import com.example.fourthofficial.model.DiscReason
 import com.example.fourthofficial.model.DiscType
 import com.example.fourthofficial.model.Discipline
@@ -33,16 +34,7 @@ class MatchViewModel : ViewModel() {
     //      TEAM
     //==================
 
-    var team1 by mutableStateOf(defaultTeam(1))
-        private set
-
-    var team2 by mutableStateOf(defaultTeam(2))
-        private set
-
-    var team1PlayerStates by mutableStateOf(defaultPlayerStates(team1))
-        private set
-
-    var team2PlayerStates by mutableStateOf(defaultPlayerStates(team2))
+    var matchState by mutableStateOf(defaultMatchState())
         private set
 
     fun defaultTeam(index: Int): Team = Team(
@@ -64,6 +56,50 @@ class MatchViewModel : ViewModel() {
             }.toMap()
     }
 
+    private fun defaultMatchTeamState(team: Team): MatchTeamState {
+        return MatchTeamState(
+            team = team,
+            playerStates = defaultPlayerStates(team)
+        )
+    }
+
+    private fun defaultMatchState(): MatchState {
+        val team1 = defaultTeam(1)
+        val team2 = defaultTeam(2)
+
+        return MatchState(
+            team1 = defaultMatchTeamState(team1),
+            team2 = defaultMatchTeamState(team2)
+        )
+    }
+
+    val team1: Team
+        get() = matchState.team1.team
+
+    val team2: Team
+        get() = matchState.team2.team
+
+    val team1PlayerStates: Map<PlayerId, MatchPlayerState>
+        get() = matchState.team1.playerStates
+
+    val team2PlayerStates: Map<PlayerId, MatchPlayerState>
+        get() = matchState.team2.playerStates
+
+    val clock: MatchClock
+        get() = matchState.clock
+
+    val phase: MatchPhase
+        get() = matchState.phase
+
+    val scoreEvents: List<Score>
+        get() = matchState.scoreEvents
+
+    val subEvents: List<Substitution>
+        get() = matchState.subEvents
+
+    val discEvents: List<Discipline>
+        get() = matchState.discEvents
+
     fun getPlayerState(teamId: TeamId, playerId: PlayerId): MatchPlayerState? {
         val states = when (teamId) {
             team1.id -> team1PlayerStates
@@ -74,72 +110,74 @@ class MatchViewModel : ViewModel() {
     }
 
     private fun updatePlayerStates(teamId: TeamId, states: Map<PlayerId, MatchPlayerState>) {
-        when (teamId) {
-            team1.id -> team1PlayerStates = states
-            team2.id -> team2PlayerStates = states
+        matchState = when (teamId) {
+            team1.id -> matchState.copy(team1 = matchState.team1.copy(playerStates = states))
+            team2.id -> matchState.copy(team2 = matchState.team2.copy(playerStates = states))
+            else -> matchState
         }
     }
 
     fun updateTeam1(updated: Team) {
-        team1 = updated
+        matchState = matchState.copy(
+            team1 = matchState.team1.copy(
+                team = updated
+            )
+        )
     }
 
     fun updateTeam2(updated: Team) {
-        team2 = updated
+        matchState = matchState.copy(
+            team2 = matchState.team2.copy(
+                team = updated
+            )
+        )
     }
 
     fun resetPlayerStates() {
-        team1PlayerStates = defaultPlayerStates(team1)
-        team2PlayerStates = defaultPlayerStates(team2)
+        matchState = matchState.copy(
+            team1 = matchState.team1.copy(playerStates = defaultPlayerStates(team1)),
+            team2 = matchState.team2.copy(playerStates = defaultPlayerStates(team2))
+        )
     }
 
     //==================
     //      SCORE
     //==================
 
-    var scoreEvents = mutableStateListOf<Score>()
-        private set
-
     fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
-        scoreEvents.add(
-            Score(
-                timeMs = displayElapsedMs,
-                teamId = teamId,
-                halfIndex = currentHalf,
-                playerId = playerId,
-                type = scoreType
-            )
+        val score = Score(
+            timeMs = displayElapsedMs,
+            teamId = teamId,
+            halfIndex = currentHalf,
+            playerId = playerId,
+            type = scoreType
         )
+
+        matchState = matchState.copy(scoreEvents = matchState.scoreEvents + score)
     }
 
     fun resetScores() {
-        scoreEvents.clear()
+        matchState = matchState.copy(scoreEvents = emptyList())
     }
 
     //==================
     //      SUBS
     //==================
 
-
-    var subEvents = mutableStateListOf<Substitution>()
-        private set
-
     var subBatch by mutableStateOf<SubBatchState?>(null)
         private set
 
-    private fun recordSub(
-        teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId, reason: SubType, time: Long, halfIndex: Int
-    ) {
-        subEvents.add(
-            Substitution(
-                timeMs = time,
-                teamId = teamId,
-                halfIndex = halfIndex,
-                playerOffId = playerOffId,
-                playerOnId = playerOnId,
-                type = reason
-            )
+    private fun recordSub(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId,
+                          reason: SubType, time: Long, halfIndex: Int) {
+        val subs = Substitution(
+            timeMs = time,
+            teamId = teamId,
+            halfIndex = halfIndex,
+            playerOffId = playerOffId,
+            playerOnId = playerOnId,
+            type = reason
         )
+        matchState = matchState.copy(subEvents = matchState.subEvents + subs)
     }
 
     fun startSubBatch(teamId: TeamId) {
@@ -226,17 +264,13 @@ class MatchViewModel : ViewModel() {
     }
 
     fun resetSubs() {
-        subEvents.clear()
+        matchState = matchState.copy(subEvents = emptyList())
         subBatch = null
     }
 
     //==================
     //      CARDS
     //==================
-
-
-    var discEvents = mutableStateListOf<Discipline>()
-        private set
 
     private val yellowDurationMs = 10L * 60L * 1000L
 
@@ -247,16 +281,15 @@ class MatchViewModel : ViewModel() {
             DiscType.RED
         } else type
 
-        discEvents.add(
-            Discipline(
-                timeMs = displayElapsedMs,
-                teamId = teamId,
-                halfIndex = currentHalf,
-                playerId = playerId,
-                type = finalType,
-                reason = reason,
-            )
+        val discs = Discipline(
+            timeMs = displayElapsedMs,
+            teamId = teamId,
+            halfIndex = currentHalf,
+            playerId = playerId,
+            type = finalType,
+            reason = reason,
         )
+        matchState = matchState.copy(discEvents = matchState.discEvents + discs)
 
         if (finalType == DiscType.YELLOW) applyYellow(teamId, playerId)
         else applyRed(teamId, playerId)
@@ -303,23 +336,24 @@ class MatchViewModel : ViewModel() {
     }
 
     private fun clearAllCards() {
-        team1PlayerStates = team1PlayerStates.mapValues { (_, state) ->
-            state.copy(
-                yellowUntilPlayingMs = null,
-                isRedCarded = false
-            )
-        }
-
-        team2PlayerStates = team2PlayerStates.mapValues { (_, state) ->
-            state.copy(
-                yellowUntilPlayingMs = null,
-                isRedCarded = false
-            )
-        }
+        matchState = matchState.copy(
+            team1 = matchState.team1.copy(
+                playerStates = team1PlayerStates.mapValues { (_, state) ->
+                    state.copy(
+                        yellowUntilPlayingMs = null,
+                        isRedCarded = false
+                    ) }),
+            team2 = matchState.team2.copy(
+                playerStates = team2PlayerStates.mapValues { (_, state) ->
+                    state.copy(
+                        yellowUntilPlayingMs = null,
+                        isRedCarded = false
+                    ) })
+        )
     }
 
     fun resetDiscs() {
-        discEvents.clear()
+        matchState = matchState.copy(discEvents = emptyList())
         clearAllCards()
     }
 
@@ -334,12 +368,6 @@ class MatchViewModel : ViewModel() {
     private var baseTotalElapsedMs: Long = 0L
     private var tickerJob: Job? = null
 
-    var clock by mutableStateOf(MatchClock())
-        private set
-
-    var phase by mutableStateOf(MatchPhase.NOT_STARTED)
-        private set
-
     val currentHalf: Int
         get() = when (phase) {
             MatchPhase.FIRST_HALF -> 1
@@ -353,18 +381,19 @@ class MatchViewModel : ViewModel() {
     fun startClock() {
         if (clock.isRunning) return
 
-        when (phase) {
-            MatchPhase.NOT_STARTED -> { phase = MatchPhase.FIRST_HALF }
-            MatchPhase.HALF_TIME -> { phase = MatchPhase.SECOND_HALF }
+        val newPhase = when (phase) {
+            MatchPhase.NOT_STARTED -> MatchPhase.FIRST_HALF
+            MatchPhase.HALF_TIME -> MatchPhase.SECOND_HALF
             MatchPhase.FINISHED -> return
-            else -> Unit
+            else -> phase
         }
 
         baseHalfElapsedMs = clock.halfElapsedMs
         baseTotalElapsedMs = clock.totalElapsedMs
         startRealtimeMs = SystemClock.elapsedRealtime()
 
-        clock = clock.copy(isRunning = true)
+        matchState = matchState.copy(
+            phase = newPhase, clock = matchState.clock.copy(isRunning = true))
 
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch {
@@ -372,9 +401,11 @@ class MatchViewModel : ViewModel() {
                 val now = SystemClock.elapsedRealtime()
                 val runningMs = now - startRealtimeMs
 
-                clock = clock.copy(
-                    halfElapsedMs = baseHalfElapsedMs + runningMs,
-                    totalElapsedMs = baseTotalElapsedMs + runningMs
+                matchState = matchState.copy(
+                    clock = matchState.clock.copy(
+                        halfElapsedMs = baseHalfElapsedMs + runningMs,
+                        totalElapsedMs = baseTotalElapsedMs + runningMs
+                    )
                 )
 
                 delay(100)
@@ -391,10 +422,12 @@ class MatchViewModel : ViewModel() {
         tickerJob?.cancel()
         tickerJob = null
 
-        clock = clock.copy(
-            isRunning = false,
-            halfElapsedMs = baseHalfElapsedMs + runningMs,
-            totalElapsedMs = baseTotalElapsedMs + runningMs
+        matchState = matchState.copy(
+            clock = matchState.clock.copy(
+                isRunning = false,
+                halfElapsedMs = baseHalfElapsedMs + runningMs,
+                totalElapsedMs = baseTotalElapsedMs + runningMs
+            )
         )
     }
 
@@ -408,11 +441,9 @@ class MatchViewModel : ViewModel() {
 
         stopClock()
 
-        phase = MatchPhase.HALF_TIME
-
-        clock = clock.copy(
-            isRunning = false,
-            halfElapsedMs = 0L
+        matchState = matchState.copy(
+            phase = MatchPhase.HALF_TIME,
+            clock = matchState.clock.copy(isRunning = false, halfElapsedMs = 0L)
         )
 
         baseHalfElapsedMs = 0L
@@ -424,7 +455,9 @@ class MatchViewModel : ViewModel() {
 
         stopClock()
 
-        phase = MatchPhase.FINISHED
+        matchState = matchState.copy(
+            phase = MatchPhase.FINISHED
+        )
     }
 
     fun isClockRunning(): Boolean {
@@ -439,8 +472,10 @@ class MatchViewModel : ViewModel() {
         baseHalfElapsedMs = 0L
         baseTotalElapsedMs = 0L
 
-        clock = MatchClock()
-        phase = MatchPhase.NOT_STARTED
+        matchState = matchState.copy(
+            phase = MatchPhase.NOT_STARTED,
+            clock = MatchClock()
+        )
     }
 
     fun formatClock(ms: Long, remaining: Boolean): String {
