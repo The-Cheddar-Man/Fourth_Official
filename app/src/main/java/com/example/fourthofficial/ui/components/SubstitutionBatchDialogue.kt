@@ -25,7 +25,7 @@ import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 
 @Composable
-fun SubBatchReviewDialog(
+fun SubstitutionBatchReviewDialog(
     subs: List<PreparedSubstitution>,
     labelForSub: (PreparedSubstitution) -> String,
     onRemove: (PlayerId) -> Unit,
