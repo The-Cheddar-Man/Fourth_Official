@@ -12,5 +12,6 @@ data class MatchState(
     val team1: MatchTeamState,
     val team2: MatchTeamState,
 
-    val events: List<MatchEvent> = emptyList()
+    val events: List<MatchEvent> = emptyList(),
+    val preparedSubstitutionBatch: PreparedSubstitutionBatch? = null
 )

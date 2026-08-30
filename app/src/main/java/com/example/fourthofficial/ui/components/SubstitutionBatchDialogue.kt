@@ -22,12 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.fourthofficial.domain.id.PlayerId
-import com.example.fourthofficial.model.PendingSub
+import com.example.fourthofficial.domain.match.PreparedSubstitution
 
 @Composable
 fun SubBatchReviewDialog(
-    subs: List<PendingSub>,
-    labelForSub: (PendingSub) -> String,
+    subs: List<PreparedSubstitution>,
+    labelForSub: (PreparedSubstitution) -> String,
     onRemove: (PlayerId) -> Unit,
     onAddAnother: () -> Unit,
     onConfirm: () -> Unit,

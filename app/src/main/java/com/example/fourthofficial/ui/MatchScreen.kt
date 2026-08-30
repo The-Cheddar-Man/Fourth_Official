@@ -38,7 +38,7 @@ import com.example.fourthofficial.domain.event.DisciplineReason
 import com.example.fourthofficial.domain.event.DisciplineReasonRed
 import com.example.fourthofficial.domain.event.DisciplineReasonYellow
 import com.example.fourthofficial.domain.event.DisciplineType
-import com.example.fourthofficial.model.PendingSub
+import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.SubstitutionType
@@ -280,7 +280,7 @@ fun MatchScreen(
                                 if (eligibleOn.isEmpty())
                                     uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                                 else {
-                                    vm.startSubBatch(state.teamId)
+                                    vm.startPreparedSubstitutionBatch(state.teamId)
                                     uiState = MatchScreenUiState.SubPickOnPlayer(
                                         state.teamId,
                                         state.playerId
@@ -319,7 +319,7 @@ fun MatchScreen(
         }
 
         is MatchScreenUiState.SubPickOnPlayer -> {
-            val subs = vm.getSubBatchPlayers()
+            val subs = vm.getPreparedSubstitutions()
             val eligibleOn = vm.eligiblePlayersOn(state.teamId)
             if (eligibleOn.isEmpty()) {
                 AlertDialog(
@@ -361,11 +361,11 @@ fun MatchScreen(
         is MatchScreenUiState.SubPickReason -> {
             SubstituteReasonDialogue(
                 onConfirm = { subType ->
-                    vm.addPendingSub(state.playerOffId, state.playerOnId, subType)
+                    vm.addPreparedSubstitution(state.playerOffId, state.playerOnId, subType)
                     uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                 },
                 onDismiss = {
-                    if (vm.getSubBatchPlayers().size > 0)
+                    if (vm.getPreparedSubstitutions().size > 0)
                         uiState = MatchScreenUiState.SubBatchReview(state.teamId)
                     else
                         dismissDialogue()
@@ -374,27 +374,34 @@ fun MatchScreen(
         }
 
         is MatchScreenUiState.SubBatchReview -> {
-            val canAddAnotherSub = vm.canAddAnotherSub(state.teamId)
+            val canAddAnotherSub = vm.canAddAnotherSubstitution(state.teamId)
             SubstituteSummaryDialogue(
-                subs = vm.getSubBatchPlayers(),
+                Substitutions = vm.getPreparedSubstitutions(),
                 onConfirm = {
-                    vm.applySubBatch()
+                    vm.applyPreparedSubstitutionBatch()
                     dismissDialogue()
                 },
                 onCancel = {
-                    vm.cancelSubBatch()
+                    vm.cancelPreparedSubstitutionBatch()
                     dismissDialogue()
                 },
                 onAddAnother = {
                     uiState = MatchScreenUiState.SubPickOffPlayer(state.teamId)
                 },
                 onRemove = { playerOffId ->
-                    vm.removePendingSub(playerOffId)
+                    vm.removePreparedSubstitution(playerOffId)
                 },
-                labelForSub = { sub ->
-                    "${playerLabel(state.teamId, sub.playerOffId)} → " +
-                            "${playerLabel(state.teamId, sub.playerOnId)} " +
-                            "(${sub.type.label})"
+                labelForSubstitution = { substitution ->
+                    val playerOnId = substitution.playerOnId
+                    val type = substitution.type
+
+                    if (playerOnId != null && type != null) {
+                        "${playerLabel(state.teamId, substitution.playerOffId)} → " +
+                                "${playerLabel(state.teamId, playerOnId)} " +
+                                "(${type.label})"
+                    } else {
+                        "${playerLabel(state.teamId, substitution.playerOffId)} → Not assigned"
+                    }
                 },
                 canAddAnotherSub = canAddAnotherSub
             )
@@ -490,7 +497,7 @@ fun MatchScreen(
                     onClick = {
                         vm.resetClock()
                         vm.resetScores()
-                        vm.resetSubs()
+                        vm.resetSubstitutions()
                         vm.resetDiscs()
                         vm.resetPlayerStates()
                         showResetDialog = false
@@ -614,15 +621,15 @@ fun SubstituteReasonDialogue(
 
 @Composable
 fun SubstituteSummaryDialogue(
-    subs: List<PendingSub>,
+    Substitutions: List<PreparedSubstitution>,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     onAddAnother: () -> Unit,
     onRemove: (PlayerId) -> Unit,
-    labelForSub: (PendingSub) -> String,
+    labelForSubstitution: (PreparedSubstitution) -> String,
     canAddAnotherSub: Boolean
 ) {
-    SubBatchReviewDialog(subs, labelForSub, onRemove, onAddAnother, onConfirm, onCancel, canAddAnotherSub)
+    SubBatchReviewDialog(Substitutions, labelForSubstitution, onRemove, onAddAnother, onConfirm, onCancel, canAddAnotherSub)
 }
 
 @Composable

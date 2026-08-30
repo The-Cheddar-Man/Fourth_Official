@@ -11,7 +11,7 @@ fun isMatchInPlay(phase: MatchPhase, clock: MatchClock): Boolean {
 
 fun canActOnPlayer(state: MatchPlayerState, phase: MatchPhase, clock: MatchClock): Boolean {
     return state.isOnField && isMatchInPlay(phase, clock) &&
-            !isYellowActive(state, clock.totalElapsedMs) && !isRedActive(state)
+            !isYellowActive(state, clock.totalElapsedMs) && !state.isRedCarded
 }
 
 fun canFinishHalf(phase: MatchPhase, halfElapsedMs: Long, halfDurationMs: Long): Boolean {
