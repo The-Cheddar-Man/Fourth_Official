@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui
+package com.example.fourthofficial.ui.setup
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
@@ -35,8 +35,8 @@ import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
-fun SetupScreen(modifier: Modifier = Modifier, vm: MatchViewModel,
-                onTeam1Change: (Team) -> Unit, onTeam2Change: (Team) -> Unit) {
+fun MatchSetupScreen(modifier: Modifier = Modifier.Companion, vm: MatchViewModel,
+                     onTeam1Change: (Team) -> Unit, onTeam2Change: (Team) -> Unit) {
     Row(modifier = modifier.fillMaxSize()) {
 
         TeamColumn(
@@ -54,7 +54,7 @@ fun SetupScreen(modifier: Modifier = Modifier, vm: MatchViewModel,
 }
 
 @Composable
-private fun TeamColumn(team: Team, onSave: (Team) -> Unit, modifier: Modifier = Modifier) {
+private fun TeamColumn(team: Team, onSave: (Team) -> Unit, modifier: Modifier = Modifier.Companion) {
     var isEditing by remember { mutableStateOf(false) }
     var editedName by remember(team) { mutableStateOf(team.name) }
     val editedPlayers = remember(team) {
@@ -203,8 +203,8 @@ private fun EditPlayerRow(index: Int, player: Player, onPlayerChange: (Player) -
 @SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
 @Composable
-private fun SetupScreenPreview() {
-    SetupScreen(
+private fun MatchSetupScreenPreview() {
+    MatchSetupScreen(
         vm = MatchViewModel(),
         onTeam1Change = {},
         onTeam2Change = {}

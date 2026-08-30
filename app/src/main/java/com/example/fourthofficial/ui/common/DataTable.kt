@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui.components
+package com.example.fourthofficial.ui.common
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +20,7 @@ data class TableColumn<T>(
 fun <T> DataTable(
     events: List<T>,
     columns: List<TableColumn<T>>,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.Companion,
     keySelector: ((T) -> Any)? = null
 ) {
     LazyColumn(
@@ -29,7 +29,12 @@ fun <T> DataTable(
         item {
             Row(Modifier.fillMaxWidth()) {
                 columns.forEach { col ->
-                    Text(col.header, modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        col.header,
+                        modifier = Modifier.weight(col.weight),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             HorizontalDivider()
@@ -39,7 +44,12 @@ fun <T> DataTable(
             items(events) { item ->
                 Row(Modifier.fillMaxWidth()) {
                     columns.forEach { col ->
-                        Text(col.value(item), modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            col.value(item),
+                            modifier = Modifier.weight(col.weight),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 HorizontalDivider()
@@ -51,7 +61,12 @@ fun <T> DataTable(
             ) { item ->
                 Row(Modifier.fillMaxWidth()) {
                     columns.forEach { col ->
-                        Text(col.value(item), modifier = Modifier.weight(col.weight), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            col.value(item),
+                            modifier = Modifier.weight(col.weight),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 HorizontalDivider()

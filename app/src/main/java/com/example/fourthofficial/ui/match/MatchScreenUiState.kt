@@ -1,4 +1,5 @@
-package com.example.fourthofficial.ui.components
+package com.example.fourthofficial.ui.match
+
 import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
@@ -10,7 +11,8 @@ sealed interface MatchScreenUiState {
     data class ScorePick(val teamId: TeamId, val playerId: PlayerId,
                          val eventTimeMs: Long, val halfIndex: Int) : MatchScreenUiState
     data class PreparingSubstitutions(
-        val preparationState: SubstitutionPreparationUiState) : MatchScreenUiState
+        val preparationState: SubstitutionPreparationUiState
+    ) : MatchScreenUiState
     data class DiscPickType(val teamId: TeamId, val playerId: PlayerId, val
     eventTimeMs: Long, val halfIndex: Int) : MatchScreenUiState
     data class DiscPickReason(

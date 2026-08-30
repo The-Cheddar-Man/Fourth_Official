@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui
+package com.example.fourthofficial.ui.summary
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
@@ -24,13 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.Substitution
+import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.team.Team
-import com.example.fourthofficial.ui.components.DataTable
-import com.example.fourthofficial.ui.components.TableColumn
+import com.example.fourthofficial.ui.common.DataTable
+import com.example.fourthofficial.ui.common.TableColumn
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 enum class SummaryTab {
@@ -38,7 +38,7 @@ enum class SummaryTab {
 }
 
 @Composable
-fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
+fun SummaryScreen(modifier: Modifier = Modifier.Companion, vm: MatchViewModel) {
     var currentTab by rememberSaveable { mutableStateOf(SummaryTab.Scores) }
     var selectedTeam by rememberSaveable { mutableIntStateOf(1) }
     var selectedHalf by rememberSaveable { mutableIntStateOf(1) }
@@ -77,7 +77,12 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
 
         when (currentTab) {
             SummaryTab.Scores -> ScoresTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Substitutions -> SubstitutionsTab(vm = vm, team = team, halfIndex = selectedHalf)
+            SummaryTab.Substitutions -> SubstitutionsTab(
+                vm = vm,
+                team = team,
+                halfIndex = selectedHalf
+            )
+
             SummaryTab.Disciplines -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
             SummaryTab.Export -> ExportTab()
         }
@@ -85,7 +90,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
 }
 
 @Composable
-private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun ScoresTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -107,19 +112,23 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                 e.type.label
             },
             TableColumn(header = "Player", weight = 1.5f) { e ->
-                playerLabel(team, e.playerId )
+                playerLabel(team, e.playerId)
             },
             TableColumn<Score>(header = "Time", weight = 0.8f) { e ->
                 vm.formatClock(e.timeMs, false)
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.id.value })
+        DataTable(
+            events = events,
+            columns = columns,
+            Modifier.fillMaxWidth().weight(1f),
+            keySelector = { it.id.value })
     }
 }
 
 @Composable
-private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun SubstitutionsTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -130,7 +139,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
         Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
 
         val events = vm.subEvents
-            .filter { it.teamId == team.id && it.halfIndex == halfIndex}
+            .filter { it.teamId == team.id && it.halfIndex == halfIndex }
             .sortedBy { it.timeMs }
 
         val columns = listOf(
@@ -148,12 +157,16 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.id.value })
+        DataTable(
+            events = events,
+            columns = columns,
+            Modifier.fillMaxWidth().weight(1f),
+            keySelector = { it.id.value })
     }
 }
 
 @Composable
-private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun DisciplinesTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -164,7 +177,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
 
         val events = vm.discEvents
-            .filter { it.teamId == team.id && it.halfIndex == halfIndex}
+            .filter { it.teamId == team.id && it.halfIndex == halfIndex }
             .sortedBy { it.timeMs }
 
         val columns = listOf(
@@ -182,12 +195,16 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
             }
         )
 
-        DataTable(events = events, columns = columns, Modifier.fillMaxWidth().weight(1f), keySelector = { it.id.value })
+        DataTable(
+            events = events,
+            columns = columns,
+            Modifier.fillMaxWidth().weight(1f),
+            keySelector = { it.id.value })
     }
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier) {
+private fun ExportTab(modifier: Modifier = Modifier.Companion) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),

@@ -1,10 +1,10 @@
 package com.example.fourthofficial.domain.rules
 
-import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchPlayerState
 
 fun canSubstituteOn(state: MatchPlayerState, totalElapsedMs: Long,
                     alreadyUsed: Boolean = false, canReturn: Boolean): Boolean {

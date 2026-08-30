@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui.components
+package com.example.fourthofficial.ui.match.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,7 +45,10 @@ fun SubstitutionBatchReviewDialog(
                 .wrapContentHeight()
                 .padding(16.dp)
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text("Substitutions", style = MaterialTheme.typography.titleLarge)
                 if (subs.isEmpty()) {
                     Text("No substitutions queued.")
@@ -82,7 +85,11 @@ fun SubstitutionBatchReviewDialog(
                         enabled = eligibleOn,
                         onClick = onAddAnother
                     ) {
-                        Text("Add another", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "Add another",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                     Button(
                         modifier = Modifier.widthIn(min = 110.dp),

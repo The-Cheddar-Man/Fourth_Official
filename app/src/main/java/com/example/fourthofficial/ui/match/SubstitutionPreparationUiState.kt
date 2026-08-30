@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui.components
+package com.example.fourthofficial.ui.match
 
 import com.example.fourthofficial.domain.id.PlayerId
 

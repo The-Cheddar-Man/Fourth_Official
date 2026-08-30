@@ -1,7 +1,7 @@
 package com.example.fourthofficial.domain.match
 
-import com.example.fourthofficial.domain.id.MatchId
 import com.example.fourthofficial.domain.event.MatchEvent
+import com.example.fourthofficial.domain.id.MatchId
 
 data class MatchState(
     val id: MatchId = MatchId.new(),

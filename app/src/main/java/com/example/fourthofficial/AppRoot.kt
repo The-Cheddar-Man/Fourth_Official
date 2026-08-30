@@ -1,4 +1,4 @@
-package com.example.fourthofficial.ui
+package com.example.fourthofficial
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -12,6 +12,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fourthofficial.ui.match.MatchScreen
+import com.example.fourthofficial.ui.setup.MatchSetupScreen
+import com.example.fourthofficial.ui.summary.SummaryScreen
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 private enum class Screen {
@@ -50,16 +53,18 @@ fun AppRoot() {
     ) { padding ->
 
         when (screen) {
-            Screen.Setup -> SetupScreen(
+            Screen.Setup -> MatchSetupScreen(
                 modifier = Modifier.padding(padding),
                 vm = matchVm,
                 onTeam1Change = matchVm::updateTeam1,
                 onTeam2Change = matchVm::updateTeam2
             )
+
             Screen.Match -> MatchScreen(
                 modifier = Modifier.padding(padding),
                 vm = matchVm
             )
+
             Screen.Summary -> SummaryScreen(
                 modifier = Modifier.padding(padding),
                 vm = matchVm

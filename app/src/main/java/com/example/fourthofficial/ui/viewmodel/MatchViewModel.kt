@@ -6,41 +6,41 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.domain.event.Discipline
+import com.example.fourthofficial.domain.event.DisciplineReason
+import com.example.fourthofficial.domain.event.DisciplineType
+import com.example.fourthofficial.domain.event.MatchEvent
+import com.example.fourthofficial.domain.event.Score
+import com.example.fourthofficial.domain.event.ScoreType
+import com.example.fourthofficial.domain.event.Substitution
+import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
-import com.example.fourthofficial.domain.event.MatchEvent
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
-import com.example.fourthofficial.domain.event.DisciplineType
-import com.example.fourthofficial.domain.event.Discipline
-import com.example.fourthofficial.domain.event.DisciplineReason
-import com.example.fourthofficial.domain.team.Player
-import com.example.fourthofficial.domain.event.Score
-import com.example.fourthofficial.domain.event.ScoreType
-import com.example.fourthofficial.domain.event.SubstitutionType
-import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.match.PreparedSubstitutionBatch
 import com.example.fourthofficial.domain.rules.applyRedCard
 import com.example.fourthofficial.domain.rules.applyYellowCard
-import com.example.fourthofficial.domain.team.Team
-import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
-import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
-import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
-import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
-import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
+import com.example.fourthofficial.domain.rules.calculateScore
+import com.example.fourthofficial.domain.rules.canReturn
 import com.example.fourthofficial.domain.rules.canSubstituteOff
 import com.example.fourthofficial.domain.rules.canSubstituteOn
+import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
 import com.example.fourthofficial.domain.rules.isMatchInPlay
-import com.example.fourthofficial.domain.rules.calculateScore
 import com.example.fourthofficial.domain.rules.isSecondYellowCard
-import com.example.fourthofficial.domain.rules.canReturn
+import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.domain.team.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
+import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
+import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
+import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
 
 class MatchViewModel : ViewModel() {
 
