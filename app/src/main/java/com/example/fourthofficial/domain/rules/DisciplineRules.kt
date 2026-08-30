@@ -13,10 +13,6 @@ fun isYellowActive(state: MatchPlayerState, totalElapsedMs: Long): Boolean {
     return totalElapsedMs < until
 }
 
-fun isRedActive(state: MatchPlayerState): Boolean {
-    return state.isRedCarded
-}
-
 fun isDisciplineReasonValid(type: DisciplineType, reason: DisciplineReason): Boolean {
     return when (type) {
         DisciplineType.YELLOW -> reason is DisciplineReasonYellow

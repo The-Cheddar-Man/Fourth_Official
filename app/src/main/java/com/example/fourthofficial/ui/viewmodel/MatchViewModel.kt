@@ -28,7 +28,6 @@ import com.example.fourthofficial.domain.rules.applyRedCard
 import com.example.fourthofficial.domain.rules.applyYellowCard
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
-import com.example.fourthofficial.domain.rules.isRedActive as isRedActiveRule
 import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
 import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
 import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
@@ -450,10 +449,6 @@ class MatchViewModel : ViewModel() {
 
     fun yellowRemainingMs(state: MatchPlayerState): Long {
         return yellowRemainingMsRule(state, clock.totalElapsedMs)
-    }
-
-    fun isRedActive(state: MatchPlayerState): Boolean {
-        return isRedActiveRule(state)
     }
 
     private fun clearAllCards() {

@@ -741,7 +741,7 @@ fun TeamColumn(
                 val (player, state) = onField[i]
                 val locked = !vm.canActOnPlayer(state)
                 Surface(
-                    color = playerTileColor(vm.isYellowActive(state), vm.isRedActive(state)),
+                    color = playerTileColor(vm.isYellowActive(state), state.isRedCarded),
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -761,7 +761,7 @@ fun TeamColumn(
                                 vm.formatClock(vm.yellowRemainingMs(state),false)}"
                             )
                         }
-                        if (vm.isRedActive(state)) {
+                        if (state.isRedCarded) {
                             Text("Red")
                         }
                     }
