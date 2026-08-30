@@ -44,8 +44,9 @@ import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.components.MatchScreenUiState
+import com.example.fourthofficial.ui.components.SubstitutionPreparationUiState
 import com.example.fourthofficial.ui.components.SingleChoiceDialog
-import com.example.fourthofficial.ui.components.SubBatchReviewDialog
+import com.example.fourthofficial.ui.components.SubstitutionBatchReviewDialog
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 enum class ClockDisplayMode {
@@ -59,6 +60,7 @@ fun MatchScreen(
     modifier: Modifier = Modifier,
     vm: MatchViewModel
 ) {
+    //region vars and vals
     var uiState by remember { mutableStateOf<MatchScreenUiState>(MatchScreenUiState.None) }
     val dismissDialogue = { uiState = MatchScreenUiState.None }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -89,12 +91,15 @@ fun MatchScreen(
                 "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}"
             }?: "Unknown player"
     }
+    //endregion
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize()
-    ) {
+    )
+    {
+        //region Timers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -138,6 +143,9 @@ fun MatchScreen(
                 style = MaterialTheme.typography.displayMedium
             )
         }
+        //endregion
+
+        //region Buttons
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -164,7 +172,9 @@ fun MatchScreen(
                 )
             }
         }
+        //endregion
 
+        //region Scores
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -212,7 +222,9 @@ fun MatchScreen(
                 text = vm.halfTimeScoreForTeam(vm.team2.id).toString()
             )
         }
+        //endregion
 
+        //region Team columns
         Row {
             TeamColumn(
                 team = vm.team1,
@@ -233,6 +245,7 @@ fun MatchScreen(
                 }
             )
         }
+        //endregion
     }
 
     when (val state = uiState) {
@@ -276,16 +289,14 @@ fun MatchScreen(
 
                         Button(
                             onClick = {
-                                val eligibleOn = vm.eligiblePlayersOn(state.teamId)
-                                if (eligibleOn.isEmpty())
-                                    uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                                else {
-                                    vm.startPreparedSubstitutionBatch(state.teamId)
-                                    uiState = MatchScreenUiState.SubPickOnPlayer(
-                                        state.teamId,
-                                        state.playerId
+                                vm.startPreparedSubstitutionBatch(state.teamId)
+                                vm.addPreparedSubstitution(state.playerId)
+
+                                uiState = MatchScreenUiState.PreparingSubstitutions(
+                                    SubstitutionPreparationUiState.PickPlayerOn(
+                                        playerOffId = state.playerId
                                     )
-                                }
+                                )
                             }
                         ) {
                             Text("Substitution")
@@ -318,121 +329,177 @@ fun MatchScreen(
             )
         }
 
-        is MatchScreenUiState.SubPickOnPlayer -> {
-            val subs = vm.getPreparedSubstitutions()
-            val eligibleOn = vm.eligiblePlayersOn(state.teamId)
-            if (eligibleOn.isEmpty()) {
-                AlertDialog(
-                    onDismissRequest = {
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                    },
-                    title = { Text("Substitutions") },
-                    text = {
-                        Text("No players available for substitution.")
-                    },
-                    confirmButton = {
-                        OutlinedButton(onClick = {
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                        }) { Text("Ok") }
-                    },
-                    dismissButton = {}
-                )
-            } else {
-                SubstitutePlayerOnDialogue(
-                    playerOffLabel = playerLabel(state.teamId, state.playerOffId),
-                    potentialSubs = eligibleOn,
-                    onConfirm = { playerOnId ->
-                        uiState = MatchScreenUiState.SubPickReason(
-                            teamId = state.teamId,
-                            playerOffId = state.playerOffId,
-                            playerOnId = playerOnId
+        is MatchScreenUiState.PreparingSubstitutions -> {
+            val batch = vm.preparedSubstitutionBatch
+
+            if (batch != null) {
+                when (val preparationState = state.preparationState) {
+                    is SubstitutionPreparationUiState.PickPlayerOn -> {
+                        val teamId = batch.teamId
+                        val eligibleOn = vm.eligiblePlayersOn(teamId)
+                        if (eligibleOn.isEmpty()) {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    vm.removePreparedSubstitution(preparationState.playerOffId)
+                                    if (vm.getPreparedSubstitutions().isEmpty()) {
+                                        dismissDialogue()
+                                    }
+                                    else {
+                                        uiState = MatchScreenUiState.PreparingSubstitutions(
+                                            SubstitutionPreparationUiState.Review)
+                                    }
+                                },
+                                title = { Text("Substitutions") },
+                                text = { Text("No players available for substitution.") },
+                                confirmButton = {
+                                    OutlinedButton(onClick = {
+                                        vm.removePreparedSubstitution(preparationState.playerOffId)
+                                        if (vm.getPreparedSubstitutions().isEmpty()) {
+                                            dismissDialogue()
+                                        }
+                                        else {
+                                            uiState = MatchScreenUiState.PreparingSubstitutions(
+                                                SubstitutionPreparationUiState.Review)
+                                        }
+                                    }
+                                )
+                                { Text("Ok") } },
+                                dismissButton = {}
+                            )
+                        }
+                        else {
+                            SubstitutePlayerOnDialogue(
+                                playerOffLabel = playerLabel(teamId, preparationState.playerOffId),
+                                potentialSubs = eligibleOn,
+                                onConfirm = { playerOnId -> vm.setPreparedSubstitutionPlayerOn(
+                                    playerOffId = preparationState.playerOffId,
+                                    playerOnId = playerOnId
+                                )
+
+                                uiState =
+                                    MatchScreenUiState.PreparingSubstitutions(
+                                        SubstitutionPreparationUiState.PickReason(
+                                            playerOffId = preparationState.playerOffId)
+                                    )
+                                },
+                                onDismiss = {
+                                    vm.removePreparedSubstitution(
+                                        preparationState.playerOffId
+                                    )
+
+                                    if (vm.getPreparedSubstitutions().isEmpty()) {
+                                        dismissDialogue()
+                                    }
+                                    else {
+                                        uiState = MatchScreenUiState.PreparingSubstitutions(
+                                            SubstitutionPreparationUiState.Review)
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    is SubstitutionPreparationUiState.PickReason -> {
+                        SubstituteReasonDialogue(
+                            onConfirm = { substitutionType -> vm.setPreparedSubstitutionType(
+                                    playerOffId = preparationState.playerOffId,
+                                    type = substitutionType
+                                )
+                                uiState = MatchScreenUiState.PreparingSubstitutions(
+                                    SubstitutionPreparationUiState.Review
+                                )
+                            },
+                            onDismiss = {
+                                vm.removePreparedSubstitution(preparationState.playerOffId)
+                                if (vm.getPreparedSubstitutions().isEmpty()) {
+                                    dismissDialogue()
+                                } else {
+                                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                                        SubstitutionPreparationUiState.Review)
+                                }
+                            }
                         )
-                    },
-                    onDismiss = {
-                        if (subs.size > 0)
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                        else
-                            dismissDialogue()
                     }
-                )
-            }
-        }
 
-        is MatchScreenUiState.SubPickReason -> {
-            SubstituteReasonDialogue(
-                onConfirm = { subType ->
-                    vm.addPreparedSubstitution(state.playerOffId, state.playerOnId, subType)
-                    uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                },
-                onDismiss = {
-                    if (vm.getPreparedSubstitutions().size > 0)
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                    else
-                        dismissDialogue()
+                    is SubstitutionPreparationUiState.Review -> {
+                        val teamId = batch.teamId
+                        val canAddAnotherSubstitution = vm.canAddAnotherSubstitution(teamId)
+
+                        SubstituteSummaryDialogue(
+                            substitutions = vm.getPreparedSubstitutions(),
+                            onConfirm = {
+                                vm.applyPreparedSubstitutionBatch()
+                                dismissDialogue()
+                            },
+                            onCancel = {
+                                vm.cancelPreparedSubstitutionBatch()
+                                dismissDialogue()
+                            },
+                            onAddAnother = {
+                                uiState = MatchScreenUiState.PreparingSubstitutions(
+                                    SubstitutionPreparationUiState.PickPlayerOff)
+                            },
+                            onRemove = { playerOffId ->
+                                vm.removePreparedSubstitution(playerOffId)
+
+                                if (vm.getPreparedSubstitutions().isEmpty()) {
+                                    dismissDialogue()
+                                }
+                            },
+                            labelForSubstitution = { substitution ->
+                                val playerOnId = substitution.playerOnId
+                                val type = substitution.type
+
+                                if (playerOnId != null && type != null) {
+                                    "${playerLabel(teamId, substitution.playerOffId)} → " +
+                                            "${playerLabel(teamId, playerOnId)} (${type.label})"
+                                }
+                                else {
+                                    "${playerLabel(teamId, substitution.playerOffId)} → Not assigned"
+                                }
+                            },
+                            canAddAnotherSubstitution =
+                                canAddAnotherSubstitution
+                        )
+                    }
+
+                    is SubstitutionPreparationUiState.PickPlayerOff -> {
+                        val teamId = batch.teamId
+                        val eligiblePlayersOff = vm.eligiblePlayersOff(teamId)
+                        if (eligiblePlayersOff.isEmpty()) {
+                            AlertDialog(onDismissRequest = { uiState =
+                                    MatchScreenUiState.PreparingSubstitutions(
+                                        SubstitutionPreparationUiState.Review)
+                                },
+                                title = { Text("Substitutions") },
+                                text = { Text("No players available for substitution.") },
+                                confirmButton = { OutlinedButton(
+                                    onClick = { uiState =
+                                        MatchScreenUiState.PreparingSubstitutions(
+                                            SubstitutionPreparationUiState.Review)
+                                    })
+                                { Text("Ok") } },
+                                dismissButton = {}
+                            )
+                        }
+                        else {
+                            SubstitutePlayerOffDialogue(
+                                potentialPlayers = eligiblePlayersOff,
+                                onConfirm = { playerOffId ->
+                                    vm.addPreparedSubstitution(playerOffId)
+                                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                                        SubstitutionPreparationUiState.PickPlayerOn(
+                                            playerOffId))
+                                },
+                                onDismiss = {
+                                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                                        SubstitutionPreparationUiState.Review
+                                    )
+                                }
+                            )
+                        }
+                    }
                 }
-            )
-        }
-
-        is MatchScreenUiState.SubBatchReview -> {
-            val canAddAnotherSub = vm.canAddAnotherSubstitution(state.teamId)
-            SubstituteSummaryDialogue(
-                Substitutions = vm.getPreparedSubstitutions(),
-                onConfirm = {
-                    vm.applyPreparedSubstitutionBatch()
-                    dismissDialogue()
-                },
-                onCancel = {
-                    vm.cancelPreparedSubstitutionBatch()
-                    dismissDialogue()
-                },
-                onAddAnother = {
-                    uiState = MatchScreenUiState.SubPickOffPlayer(state.teamId)
-                },
-                onRemove = { playerOffId ->
-                    vm.removePreparedSubstitution(playerOffId)
-                },
-                labelForSubstitution = { substitution ->
-                    val playerOnId = substitution.playerOnId
-                    val type = substitution.type
-
-                    if (playerOnId != null && type != null) {
-                        "${playerLabel(state.teamId, substitution.playerOffId)} → " +
-                                "${playerLabel(state.teamId, playerOnId)} " +
-                                "(${type.label})"
-                    } else {
-                        "${playerLabel(state.teamId, substitution.playerOffId)} → Not assigned"
-                    }
-                },
-                canAddAnotherSub = canAddAnotherSub
-            )
-        }
-
-        is MatchScreenUiState.SubPickOffPlayer -> {
-            val eligibleOff = vm.eligiblePlayersOff(state.teamId)
-            if (eligibleOff.isEmpty()) {
-                AlertDialog(
-                    onDismissRequest = {
-                        uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                    },
-                    title = { Text("Substitutions") },
-                    text = {
-                        Text("No players available for substitution.")
-                    },
-                    confirmButton = {
-                        OutlinedButton(onClick = {
-                            uiState = MatchScreenUiState.SubBatchReview(state.teamId)
-                        }) { Text("Ok") }
-                    },
-                    dismissButton = {}
-                )
-            } else {
-                SubstitutePlayerOffDialogue(
-                    potentialPlayers = eligibleOff,
-                    onConfirm = { playerOffId ->
-                        uiState = MatchScreenUiState.SubPickOnPlayer(state.teamId, playerOffId)
-                    },
-                    onDismiss = { uiState = MatchScreenUiState.SubBatchReview(state.teamId) }
-                )
             }
         }
 
@@ -558,6 +625,7 @@ fun MatchScreen(
     }
 }
 
+//region Composables
 @Composable
 fun ScoreDialogue(
     teamName: String,
@@ -621,15 +689,15 @@ fun SubstituteReasonDialogue(
 
 @Composable
 fun SubstituteSummaryDialogue(
-    Substitutions: List<PreparedSubstitution>,
+    substitutions: List<PreparedSubstitution>,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
     onAddAnother: () -> Unit,
     onRemove: (PlayerId) -> Unit,
     labelForSubstitution: (PreparedSubstitution) -> String,
-    canAddAnotherSub: Boolean
+    canAddAnotherSubstitution: Boolean
 ) {
-    SubBatchReviewDialog(Substitutions, labelForSubstitution, onRemove, onAddAnother, onConfirm, onCancel, canAddAnotherSub)
+    SubstitutionBatchReviewDialog(substitutions, labelForSubstitution, onRemove, onAddAnother, onConfirm, onCancel, canAddAnotherSubstitution)
 }
 
 @Composable
@@ -777,6 +845,7 @@ fun TeamColumn(
         }
     }
 }
+//endregion
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true)
