@@ -7,7 +7,7 @@ fun getScoreTypePoints(type: ScoreType): Int = when (type) {
     ScoreType.TRY -> 5
     ScoreType.CONVERSION_MADE -> 2
     ScoreType.PENALTY_MADE -> 3
-    ScoreType.PENALTY_TRY -> 5
+    ScoreType.PENALTY_TRY -> 7
     ScoreType.DROP_GOAL_MADE -> 3
     else -> 0
 }

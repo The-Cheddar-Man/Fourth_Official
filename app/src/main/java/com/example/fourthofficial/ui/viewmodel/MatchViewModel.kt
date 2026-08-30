@@ -36,7 +36,8 @@ import com.example.fourthofficial.domain.rules.canSubstituteOff
 import com.example.fourthofficial.domain.rules.canSubstituteOn
 import com.example.fourthofficial.domain.rules.isMatchInPlay
 import com.example.fourthofficial.domain.rules.calculateScore
-import com.example.fourthofficial.domain.rules.resolveDisciplineType
+import com.example.fourthofficial.domain.rules.isSecondYellowCard
+import com.example.fourthofficial.domain.rules.canReturn
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -105,13 +106,13 @@ class MatchViewModel : ViewModel() {
             ?: emptySet()
 
         return team.players.filter { player ->
-            val state = getPlayerState(teamId, player.id)
-                ?: return@filter false
-
+            val state = getPlayerState(teamId, player.id) ?: return@filter false
+            val canReturn = canReturn(events = subEvents, teamId = teamId, playerId = player.id)
             canSubstituteOn(
                 state = state,
                 totalElapsedMs = clock.totalElapsedMs,
-                alreadyUsed = player.id in usedOn
+                alreadyUsed = player.id in usedOn,
+                canReturn = canReturn
             )
         }
     }
@@ -260,14 +261,15 @@ class MatchViewModel : ViewModel() {
     //==================
 
     //region Score
-    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType) {
+    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType,
+                    eventTimeMs: Long, halfIndex: Int) {
         val playerState = getPlayerState(teamId, playerId) ?: return
         if (!canActOnPlayer(playerState)) return
 
         val score = Score(
-            timeMs = displayElapsedMs,
+            timeMs = eventTimeMs,
             teamId = teamId,
-            halfIndex = currentHalf,
+            halfIndex = halfIndex,
             playerId = playerId,
             type = scoreType
         )
@@ -330,10 +332,18 @@ class MatchViewModel : ViewModel() {
             if (substitution.type == null) return
             val playerOffState = updatedStates[substitution.playerOffId] ?: return
             val playerOnState = updatedStates[substitution.playerOnId] ?: return
+            val canReturn = canReturn(
+                events = subEvents, teamId = batch.teamId, playerId = playerOnId)
 
-            if (!canSubstituteOff(state = playerOffState, totalElapsedMs = clock.totalElapsedMs))
+            if (!canSubstituteOff(
+                    state = playerOffState,
+                    totalElapsedMs = clock.totalElapsedMs))
                 return
-            if (!canSubstituteOn(state = playerOnState, totalElapsedMs = clock.totalElapsedMs))
+
+            if (!canSubstituteOn(
+                    state = playerOnState,
+                    totalElapsedMs = clock.totalElapsedMs,
+                    canReturn = canReturn))
                 return
 
             val position = playerOffState.fieldPos ?: return
@@ -408,10 +418,13 @@ class MatchViewModel : ViewModel() {
             it.playerOffId != preparedSubstitution.playerOffId
         }
 
+        val canReturn = canReturn(events = subEvents, teamId = batch.teamId, playerId = playerOnId)
+
         if (!canSubstituteOn(
                 state = playerOnState,
                 totalElapsedMs = clock.totalElapsedMs,
-                alreadyUsed = alreadyUsed
+                alreadyUsed = alreadyUsed,
+                canReturn = canReturn
             )
         ) return
 
@@ -477,11 +490,12 @@ class MatchViewModel : ViewModel() {
     //endregion
 
     //==================
-    //    Disciplines
+    //   DISCIPLINES
     //==================
 
     //region Disciplines
-    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType, reason: DisciplineReason) {
+    fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType,
+                         reason: DisciplineReason, eventTimeMs: Long, halfIndex: Int) {
         val playerState = getPlayerState(teamId, playerId) ?: return
         if (!canActOnPlayer(playerState)) return
         if (!isDisciplineReasonValid(type, reason)) return
@@ -489,22 +503,24 @@ class MatchViewModel : ViewModel() {
         val hasPreviousYellow = discEvents.any {
             it.teamId == teamId && it.playerId == playerId && it.type == DisciplineType.YELLOW
         }
-
-        val finalType = resolveDisciplineType(
-            requestedType = type, hasPreviousYellow = hasPreviousYellow)
+        val isSecondYellow = isSecondYellowCard(type = type, hasPreviousYellow = hasPreviousYellow)
 
         val discs = Discipline(
-            timeMs = displayElapsedMs,
+            timeMs = eventTimeMs,
             teamId = teamId,
-            halfIndex = currentHalf,
+            halfIndex = halfIndex,
             playerId = playerId,
-            type = finalType,
+            type = type,
             reason = reason,
+            isSecondYellow = isSecondYellow
         )
         addEvent(discs)
 
-        if (finalType == DisciplineType.YELLOW) applyYellow(teamId, playerId)
-        else applyRed(teamId, playerId)
+        when {
+            type == DisciplineType.RED -> applyRed(teamId, playerId)
+            isSecondYellow -> applyRed(teamId, playerId)
+            else -> applyYellow(teamId, playerId)
+        }
     }
 
     private fun applyYellow(teamId: TeamId, playerId: PlayerId) {

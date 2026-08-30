@@ -20,12 +20,8 @@ fun isDisciplineReasonValid(type: DisciplineType, reason: DisciplineReason): Boo
     }
 }
 
-fun resolveDisciplineType(requestedType: DisciplineType, hasPreviousYellow: Boolean): DisciplineType {
-    return if (requestedType == DisciplineType.YELLOW && hasPreviousYellow) {
-        DisciplineType.RED
-    } else {
-        requestedType
-    }
+fun isSecondYellowCard(type: DisciplineType, hasPreviousYellow: Boolean): Boolean {
+    return type == DisciplineType.YELLOW && hasPreviousYellow
 }
 
 fun applyYellowCard(state: MatchPlayerState, totalElapsedMs: Long): MatchPlayerState {

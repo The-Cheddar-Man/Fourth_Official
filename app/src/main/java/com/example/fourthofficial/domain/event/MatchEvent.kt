@@ -37,5 +37,6 @@ data class Discipline(
     override val halfIndex: Int,
     val playerId: PlayerId,
     val type: DisciplineType,
-    val reason: DisciplineReason
+    val reason: DisciplineReason,
+    val isSecondYellow: Boolean = false
 ) : MatchEvent

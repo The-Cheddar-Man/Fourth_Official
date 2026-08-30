@@ -232,7 +232,8 @@ fun MatchScreen(
                 vm = vm,
                 playerStates = vm.team1PlayerStates,
                 onPlayerTapped = { playerId ->
-                    uiState = MatchScreenUiState.ActionMenu(vm.team1.id, playerId)
+                    uiState = MatchScreenUiState.ActionMenu(vm.team1.id, playerId,
+                        vm.displayElapsedMs, vm.currentHalf)
                 }
             )
             TeamColumn(
@@ -241,7 +242,8 @@ fun MatchScreen(
                 vm = vm,
                 playerStates = vm.team2PlayerStates,
                 onPlayerTapped = { playerId ->
-                    uiState = MatchScreenUiState.ActionMenu(vm.team2.id, playerId)
+                    uiState = MatchScreenUiState.ActionMenu(vm.team2.id, playerId,
+                        vm.displayElapsedMs, vm.currentHalf)
                 }
             )
         }
@@ -280,7 +282,9 @@ fun MatchScreen(
                             onClick = {
                                 uiState = MatchScreenUiState.ScorePick(
                                     state.teamId,
-                                    state.playerId
+                                    state.playerId,
+                                    state.eventTimeMs,
+                                    state.halfIndex
                                 )
                             }
                         ) {
@@ -306,7 +310,9 @@ fun MatchScreen(
                             onClick = {
                                 uiState = MatchScreenUiState.DiscPickType(
                                     state.teamId,
-                                    state.playerId
+                                    state.playerId,
+                                    state.eventTimeMs,
+                                    state.halfIndex
                                 )
                             }
                         ) {
@@ -322,7 +328,8 @@ fun MatchScreen(
                 teamName = selectedTeamName(state.teamId),
                 playerName = selectedPlayer(state.teamId, state.playerId),
                 onConfirm = { scoreType ->
-                    vm.recordScore(state.teamId, state.playerId, scoreType)
+                    vm.recordScore(
+                        state.teamId, state.playerId, scoreType, state.eventTimeMs, state.halfIndex)
                     dismissDialogue()
                 },
                 onDismiss = dismissDialogue
@@ -510,7 +517,9 @@ fun MatchScreen(
                     uiState = MatchScreenUiState.DiscPickReason(
                         teamId = state.teamId,
                         playerId = state.playerId,
-                        type = discType
+                        type = discType,
+                        state.eventTimeMs,
+                        state.halfIndex
                     )
                 },
                 onDismiss = dismissDialogue
@@ -526,7 +535,9 @@ fun MatchScreen(
                                 state.teamId,
                                 state.playerId,
                                 state.type,
-                                reason
+                                reason,
+                                state.eventTimeMs,
+                                state.halfIndex
                             )
                             dismissDialogue()
                         },
@@ -541,7 +552,9 @@ fun MatchScreen(
                                 state.teamId,
                                 state.playerId,
                                 state.type,
-                                reason
+                                reason,
+                                state.eventTimeMs,
+                                state.halfIndex
                             )
                             dismissDialogue()
                         },

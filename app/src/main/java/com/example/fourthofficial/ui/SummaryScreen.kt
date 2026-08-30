@@ -169,7 +169,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
-                e.type.label
+                if (e.isSecondYellow) "Second Yellow (Red Card)" else e.type.label
             },
             TableColumn(header = "Reason", weight = 1.5f) { e ->
                 e.reason.label
