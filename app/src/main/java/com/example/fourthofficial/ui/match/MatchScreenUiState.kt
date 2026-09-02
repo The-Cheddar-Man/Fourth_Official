@@ -11,6 +11,7 @@ sealed interface MatchScreenUiState {
     data class ScorePick(val teamId: TeamId, val playerId: PlayerId,
                          val eventTimeMs: Long, val halfIndex: Int) : MatchScreenUiState
     data class PreparingSubstitutions(
+        val teamId: TeamId,
         val preparationState: SubstitutionPreparationUiState
     ) : MatchScreenUiState
     data class DiscPickType(val teamId: TeamId, val playerId: PlayerId, val

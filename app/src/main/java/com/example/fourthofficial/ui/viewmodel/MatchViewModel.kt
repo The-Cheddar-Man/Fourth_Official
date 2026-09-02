@@ -73,8 +73,12 @@ class MatchViewModel : ViewModel() {
     val subEvents: List<Substitution>
         get() = matchState.events.filterIsInstance<Substitution>()
 
-    val preparedSubstitutionBatch: PreparedSubstitutionBatch?
-        get() = matchState.preparedSubstitutionBatch
+    val preparedSubstitutionBatches: Map<TeamId, PreparedSubstitutionBatch>
+        get() = matchState.preparedSubstitutionBatches
+
+    fun getPreparedSubstitutionBatch(teamId: TeamId): PreparedSubstitutionBatch? {
+        return preparedSubstitutionBatches[teamId]
+    }
 
     val discEvents: List<Discipline>
         get() = matchState.events.filterIsInstance<Discipline>()
@@ -98,8 +102,7 @@ class MatchViewModel : ViewModel() {
             else -> return emptyList()
         }
 
-        val usedOn = preparedSubstitutionBatch
-            ?.takeIf { it.teamId == teamId }
+        val usedPlayerOnIds = getPreparedSubstitutionBatch(teamId)
             ?.substitutions
             ?.mapNotNull { it.playerOnId }
             ?.toSet()
@@ -111,7 +114,7 @@ class MatchViewModel : ViewModel() {
             canSubstituteOn(
                 state = state,
                 totalElapsedMs = clock.totalElapsedMs,
-                alreadyUsed = player.id in usedOn,
+                alreadyUsed = player.id in usedPlayerOnIds,
                 canReturn = canReturn
             )
         }
@@ -126,8 +129,7 @@ class MatchViewModel : ViewModel() {
             else -> return emptyList()
         }
 
-        val usedOff = preparedSubstitutionBatch
-            ?.takeIf { it.teamId == teamId }
+        val usedPlayerOffIds = getPreparedSubstitutionBatch(teamId)
             ?.substitutions
             ?.map { it.playerOffId }
             ?.toSet()
@@ -140,7 +142,7 @@ class MatchViewModel : ViewModel() {
             canSubstituteOff(
                 state = state,
                 totalElapsedMs = clock.totalElapsedMs,
-                alreadyUsed = player.id in usedOff
+                alreadyUsed = player.id in usedPlayerOffIds
             )
         }
     }
@@ -164,10 +166,6 @@ class MatchViewModel : ViewModel() {
                 it.teamId == teamId && it.halfIndex == 1
             }
         )
-    }
-
-    fun canAddAnotherSubstitution(teamId: TeamId): Boolean {
-        return eligiblePlayersOff(teamId).isNotEmpty() && eligiblePlayersOn(teamId).isNotEmpty()
     }
     //endregion
 
@@ -302,25 +300,21 @@ class MatchViewModel : ViewModel() {
     }
 
     fun startPreparedSubstitutionBatch(teamId: TeamId) {
-        val existingBatch = preparedSubstitutionBatch
-
-        if (existingBatch != null) {
-            if (existingBatch.teamId == teamId)
-                return
-        }
+        if (getPreparedSubstitutionBatch(teamId) != null) return
 
         matchState = matchState.copy(
-            preparedSubstitutionBatch = PreparedSubstitutionBatch(teamId = teamId)
+            preparedSubstitutionBatches = matchState.preparedSubstitutionBatches +
+                    (teamId to PreparedSubstitutionBatch(teamId = teamId))
         )
     }
 
-    fun applyPreparedSubstitutionBatch() {
+    fun applyPreparedSubstitutionBatch(teamId: TeamId) {
         if (!isMatchInPlay(phase, clock)) return
-        val batch = preparedSubstitutionBatch  ?: return
+        val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.isEmpty()) return
         if (batch.substitutions.any { it.playerOnId == null || it.type == null }) return
 
-        val teamStates = when (batch.teamId) {
+        val teamStates = when (teamId) {
             team1.id -> team1PlayerStates
             team2.id -> team2PlayerStates
             else -> return
@@ -329,11 +323,10 @@ class MatchViewModel : ViewModel() {
 
         for (substitution in batch.substitutions) {
             val playerOnId = substitution.playerOnId ?: return
-            if (substitution.type == null) return
             val playerOffState = updatedStates[substitution.playerOffId] ?: return
-            val playerOnState = updatedStates[substitution.playerOnId] ?: return
+            val playerOnState = updatedStates[playerOnId] ?: return
             val canReturn = canReturn(
-                events = subEvents, teamId = batch.teamId, playerId = playerOnId)
+                events = subEvents, teamId = teamId, playerId = playerOnId)
 
             if (!canSubstituteOff(
                     state = playerOffState,
@@ -362,14 +355,14 @@ class MatchViewModel : ViewModel() {
         val timeMs = displayElapsedMs
         val halfIndex = currentHalf
 
-        updatePlayerStates(batch.teamId, updatedStates)
+        updatePlayerStates(teamId, updatedStates)
 
         for (substitution in batch.substitutions) {
             val playerOnId = substitution.playerOnId ?: return
             val type = substitution.type ?: return
 
             recordSubstitution(
-                batch.teamId,
+                teamId,
                 substitution.playerOffId,
                 playerOnId,
                 type,
@@ -378,31 +371,33 @@ class MatchViewModel : ViewModel() {
             )
         }
 
-        matchState = matchState.copy(preparedSubstitutionBatch = null)
+        matchState = matchState.copy(
+            preparedSubstitutionBatches = matchState.preparedSubstitutionBatches - teamId)
     }
 
-    fun addPreparedSubstitution(playerOffId: PlayerId) {
+    fun addPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId) {
         if (!isMatchInPlay(phase, clock)) return
-        val batch = preparedSubstitutionBatch ?: return
+        val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.any { it.playerOffId == playerOffId }) return
 
         val playerOffState = getPlayerState(
-                batch.teamId,
-                playerOffId
-            ) ?: return
+            teamId,
+            playerOffId
+        ) ?: return
 
         if (!canSubstituteOff(state = playerOffState, totalElapsedMs = clock.totalElapsedMs))
             return
 
         val preparedSubstitution = PreparedSubstitution(playerOffId = playerOffId)
+        val updatedBatch = batch.copy(substitutions = batch.substitutions + preparedSubstitution)
 
-        matchState = matchState.copy(preparedSubstitutionBatch = batch.copy(
-            substitutions = batch.substitutions + preparedSubstitution))
+        matchState = matchState.copy(preparedSubstitutionBatches =
+            matchState.preparedSubstitutionBatches + (teamId to updatedBatch))
     }
 
-    fun setPreparedSubstitutionPlayerOn(playerOffId: PlayerId, playerOnId: PlayerId) {
+    fun setPreparedSubstitutionPlayerOn(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId) {
         if (!isMatchInPlay(phase, clock)) return
-        val batch = preparedSubstitutionBatch ?: return
+        val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (playerOffId == playerOnId) return
 
         val preparedSubstitution = batch.substitutions.find {
@@ -410,7 +405,7 @@ class MatchViewModel : ViewModel() {
             } ?: return
 
         val playerOnState = getPlayerState(
-                batch.teamId,
+                teamId,
                 playerOnId
             ) ?: return
 
@@ -418,7 +413,7 @@ class MatchViewModel : ViewModel() {
             it.playerOffId != preparedSubstitution.playerOffId
         }
 
-        val canReturn = canReturn(events = subEvents, teamId = batch.teamId, playerId = playerOnId)
+        val canReturn = canReturn(events = subEvents, teamId = teamId, playerId = playerOnId)
 
         if (!canSubstituteOn(
                 state = playerOnState,
@@ -437,54 +432,84 @@ class MatchViewModel : ViewModel() {
                 }
             }
 
-        matchState = matchState.copy(
-            preparedSubstitutionBatch = batch.copy(substitutions = updatedSubstitutions))
+        val updatedBatch = batch.copy(substitutions = updatedSubstitutions)
+
+        matchState = matchState.copy(preparedSubstitutionBatches =
+            matchState.preparedSubstitutionBatches + (teamId to updatedBatch))
     }
 
-    fun setPreparedSubstitutionType(playerOffId: PlayerId, type: SubstitutionType) {
+    fun setPreparedSubstitutionType(teamId: TeamId, playerOffId: PlayerId, type: SubstitutionType) {
         if (!isMatchInPlay(phase, clock)) return
-        val batch = preparedSubstitutionBatch ?: return
+        val batch = getPreparedSubstitutionBatch(teamId) ?: return
         if (batch.substitutions.none { it.playerOffId == playerOffId }) return
 
         val updatedSubstitutions = batch.substitutions.map { substitution ->
-                if (substitution.playerOffId == playerOffId) {
-                    substitution.copy(type = type)
-                }
-                else {
-                    substitution
-                }
+            if (substitution.playerOffId == playerOffId) {
+                substitution.copy(type = type)
             }
+            else {
+                substitution
+            }
+        }
 
-        matchState = matchState.copy(
-            preparedSubstitutionBatch = batch.copy(substitutions = updatedSubstitutions))
+        val updatedBatch = batch.copy(substitutions = updatedSubstitutions)
+
+        matchState = matchState.copy(preparedSubstitutionBatches =
+            matchState.preparedSubstitutionBatches + (teamId to updatedBatch))
     }
 
-    fun removePreparedSubstitution(playerOffId: PlayerId) {
-        val batch = preparedSubstitutionBatch ?: return
-        val remaining = batch.substitutions.filterNot {
+    fun removePreparedSubstitution(teamId: TeamId, playerOffId: PlayerId) {
+        val batch = getPreparedSubstitutionBatch(teamId) ?: return
+        val remainingSubstitutions = batch.substitutions.filterNot {
             it.playerOffId == playerOffId
         }
 
-        matchState = matchState.copy(preparedSubstitutionBatch =
-            if (remaining.isEmpty())
-                null
-            else
-                batch.copy(substitutions = remaining)
+        val updatedBatch = batch.copy(substitutions = remainingSubstitutions)
+
+        matchState = matchState.copy(preparedSubstitutionBatches =
+            matchState.preparedSubstitutionBatches + (teamId to updatedBatch))
+    }
+
+    fun getPreparedSubstitutions(teamId: TeamId): List<PreparedSubstitution> {
+        return getPreparedSubstitutionBatch(teamId)?.substitutions ?: emptyList()
+    }
+
+    fun cancelPreparedSubstitutionBatch(teamId: TeamId) {
+        matchState = matchState.copy(
+            preparedSubstitutionBatches = matchState.preparedSubstitutionBatches - teamId)
+    }
+
+    private fun reconcilePreparedSubstitutionsAfterCard(teamId: TeamId, playerId: PlayerId)
+    {
+        val batch = getPreparedSubstitutionBatch(teamId) ?: return
+
+        val updatedSubstitutions =
+            batch.substitutions.filterNot { substitution ->
+                substitution.playerOffId == playerId }.map { substitution ->
+                    if (substitution.playerOnId == playerId) {
+                        substitution.copy(playerOnId = null)
+                    }
+                    else {
+                        substitution
+                    }
+                }
+
+        val updatedBatches =
+            if (updatedSubstitutions.isEmpty()) { matchState.preparedSubstitutionBatches - teamId }
+            else {
+                matchState.preparedSubstitutionBatches +
+                        (teamId to batch.copy(substitutions = updatedSubstitutions))
+            }
+
+        matchState = matchState.copy(
+            preparedSubstitutionBatches = updatedBatches
         )
-    }
-
-    fun getPreparedSubstitutions(): List<PreparedSubstitution> {
-        return preparedSubstitutionBatch?.substitutions ?: emptyList()
-    }
-
-    fun cancelPreparedSubstitutionBatch() {
-        matchState = matchState.copy(preparedSubstitutionBatch = null)
     }
 
     fun resetSubstitutions() {
         matchState = matchState.copy(
             events = matchState.events.filterNot { it is Substitution },
-            preparedSubstitutionBatch = null
+            preparedSubstitutionBatches = emptyMap()
         )
     }
     //endregion
@@ -521,6 +546,8 @@ class MatchViewModel : ViewModel() {
             isSecondYellow -> applyRed(teamId, playerId)
             else -> applyYellow(teamId, playerId)
         }
+
+        reconcilePreparedSubstitutionsAfterCard(teamId = teamId, playerId = playerId)
     }
 
     private fun applyYellow(teamId: TeamId, playerId: PlayerId) {

@@ -1,12 +1,12 @@
 package com.example.fourthofficial.ui.match.components
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +31,8 @@ private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when {
 @Composable
 fun TeamColumn(
     team: Team, modifier: Modifier = Modifier.Companion, vm: MatchViewModel,
-    playerStates: Map<PlayerId, MatchPlayerState>, onPlayerTapped: (PlayerId) -> Unit
+    playerStates: Map<PlayerId, MatchPlayerState>, onPlayerTapped: (PlayerId) -> Unit,
+    onPlayerLongPressed: (PlayerId) -> Unit, onPreparedSubstitutionsTapped: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -48,14 +49,23 @@ fun TeamColumn(
 
         LazyColumn {
             item {
-                Box(
+                val preparedSubstitutionCount =
+                    vm.getPreparedSubstitutionBatch(team.id)?.substitutions?.size ?: 0
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        team.name.ifBlank { "Team ${team.index}" },
+                        text = team.name.ifBlank { "Team ${team.index}" },
                         textAlign = TextAlign.Center
                     )
+
+                    if (preparedSubstitutionCount > 0) {
+                        OutlinedButton(onClick = onPreparedSubstitutionsTapped) {
+                            Text("Substitutions ($preparedSubstitutionCount)")
+                        }
+                    }
                 }
             }
             items(onField.size) { i ->
@@ -68,8 +78,13 @@ fun TeamColumn(
                         .fillMaxWidth()
                         .padding(vertical = 2.dp)
                         .then(
-                            if (!locked) Modifier.clickable { onPlayerTapped(player.id) }
-                            else Modifier.Companion
+                            if (!locked) {
+                                Modifier.combinedClickable(
+                                    onClick = { onPlayerTapped(player.id) },
+                                    onLongClick = { onPlayerLongPressed(player.id) })
+                            } else {
+                                Modifier
+                            }
                         )
                 )
                 {

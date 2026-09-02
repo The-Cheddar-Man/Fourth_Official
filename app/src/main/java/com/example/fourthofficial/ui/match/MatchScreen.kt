@@ -18,6 +18,7 @@ import com.example.fourthofficial.ui.match.components.DisciplineReasonYellowDial
 import com.example.fourthofficial.ui.match.components.DisciplineTypeDialogue
 import com.example.fourthofficial.ui.match.components.FinishHalfDialogue
 import com.example.fourthofficial.ui.match.components.MatchContent
+import com.example.fourthofficial.ui.match.components.MatchTeamColumns
 import com.example.fourthofficial.ui.match.components.ScoreDialogue
 import com.example.fourthofficial.ui.match.components.StartNewMatchDialogue
 import com.example.fourthofficial.ui.match.components.SubstitutionPreparationContent
@@ -47,27 +48,71 @@ fun MatchScreen(
         selectedTeam(teamId).players.find { it.id == playerId }?.name?.ifBlank { "(Unnamed)" }
             ?: "(Unnamed)"
     }
-    val playerLabel = { teamId: TeamId, playerId: PlayerId ->
-        selectedTeam(teamId).players.find { it.id == playerId }?.let { player ->
-                "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}"
-            }?: "Unknown player"
-    }
     //endregion
 
     MatchContent(
         modifier = modifier,
         vm = vm,
-        onPlayerTapped = { teamId, playerId ->
-            uiState = MatchScreenUiState.ActionMenu(
-                teamId = teamId,
-                playerId = playerId,
-                eventTimeMs = vm.displayElapsedMs,
-                halfIndex = vm.currentHalf
-            )
-        },
         onStartNewMatchRequested = { showResetDialog = true },
         onFinishHalfRequested = { showLogHalfDialog = true }
     )
+    {
+        val currentUiState = uiState
+
+        if (currentUiState is MatchScreenUiState.PreparingSubstitutions) {
+            SubstitutionPreparationContent(
+                vm = vm,
+                teamId = currentUiState.teamId,
+                teamName = selectedTeamName(currentUiState.teamId),
+                preparationState = currentUiState.preparationState,
+                onPreparationStateChange = { preparationState ->
+                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                        teamId = currentUiState.teamId,
+                        preparationState = preparationState
+                    )
+                },
+                onReturnToMatch = {
+                    if (vm.getPreparedSubstitutions(currentUiState.teamId).isEmpty()) {
+                        vm.cancelPreparedSubstitutionBatch(currentUiState.teamId)
+                    }
+                    uiState = MatchScreenUiState.None
+                                  },
+                onDiscard = {
+                    vm.cancelPreparedSubstitutionBatch(currentUiState.teamId)
+                    uiState = MatchScreenUiState.None
+                }
+            )
+        } else {
+            MatchTeamColumns(
+                vm = vm,
+                onPlayerTapped = { teamId, playerId ->
+                    uiState = MatchScreenUiState.ActionMenu(
+                        teamId = teamId,
+                        playerId = playerId,
+                        eventTimeMs = vm.displayElapsedMs,
+                        halfIndex = vm.currentHalf
+                    )
+                },
+
+                onPlayerLongPressed = { teamId, playerId ->
+                    vm.startPreparedSubstitutionBatch(teamId)
+                    vm.addPreparedSubstitution(teamId = teamId, playerOffId = playerId)
+
+                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                            teamId = teamId,
+                            preparationState = SubstitutionPreparationUiState.SelectPlayers
+                        )
+                },
+
+                onPreparedSubstitutionsTapped = { teamId ->
+                    uiState = MatchScreenUiState.PreparingSubstitutions(
+                            teamId = teamId,
+                            preparationState = SubstitutionPreparationUiState.SelectPlayers
+                        )
+                }
+            )
+        }
+    }
 
     when (val state = uiState) {
 
@@ -86,12 +131,11 @@ fun MatchScreen(
                 },
                 onSubstitution = {
                     vm.startPreparedSubstitutionBatch(state.teamId)
-                    vm.addPreparedSubstitution(state.playerId)
+                    vm.addPreparedSubstitution(state.teamId, state.playerId)
 
                     uiState = MatchScreenUiState.PreparingSubstitutions(
-                        SubstitutionPreparationUiState.PickPlayerOn(
-                            playerOffId = state.playerId
-                        )
+                        teamId = state.teamId,
+                        preparationState = SubstitutionPreparationUiState.SelectPlayers
                     )
                 },
                 onDiscipline = {
@@ -119,18 +163,7 @@ fun MatchScreen(
             )
         }
 
-        is MatchScreenUiState.PreparingSubstitutions -> {
-            SubstitutionPreparationContent(
-                vm =  vm,
-                preparationState = state.preparationState,
-                playerLabel = playerLabel,
-                onPreparationStateChange = { preparationState ->
-                    uiState = MatchScreenUiState.PreparingSubstitutions(
-                        preparationState = preparationState)
-                },
-                onExit = { uiState = MatchScreenUiState.None }
-            )
-        }
+        is MatchScreenUiState.PreparingSubstitutions -> Unit
 
         is MatchScreenUiState.DiscPickType -> {
             DisciplineTypeDialogue(
@@ -195,6 +228,8 @@ fun MatchScreen(
                 vm.resetSubstitutions()
                 vm.resetDiscs()
                 vm.resetPlayerStates()
+
+                uiState = MatchScreenUiState.None
                 showResetDialog = false
             },
             onDismiss = {

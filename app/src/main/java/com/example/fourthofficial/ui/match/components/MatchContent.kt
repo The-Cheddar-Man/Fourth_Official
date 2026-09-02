@@ -33,9 +33,9 @@ private enum class ClockDisplayMode {
 fun MatchContent(
     modifier: Modifier = Modifier,
     vm: MatchViewModel,
-    onPlayerTapped: (TeamId, PlayerId) -> Unit,
     onStartNewMatchRequested: () -> Unit,
-    onFinishHalfRequested: () -> Unit
+    onFinishHalfRequested: () -> Unit,
+    bodyContent: @Composable () -> Unit
 ) {
     var clockDisplayMode by remember { mutableStateOf(ClockDisplayMode.RUGBY) }
 
@@ -178,33 +178,35 @@ fun MatchContent(
         }
         //endregion
 
-        //region Team columns
-        Row {
-            TeamColumn(
-                team = vm.team1,
-                modifier = Modifier.weight(1f),
-                vm = vm,
-                playerStates = vm.team1PlayerStates,
-                onPlayerTapped = { playerId ->
-                    onPlayerTapped(
-                        vm.team1.id,
-                        playerId
-                    )
-                }
-            )
-            TeamColumn(
-                team = vm.team2,
-                modifier = Modifier.weight(1f),
-                vm = vm,
-                playerStates = vm.team2PlayerStates,
-                onPlayerTapped = { playerId ->
-                    onPlayerTapped(
-                        vm.team2.id,
-                        playerId
-                    )
-                }
-            )
-        }
-        //endregion
+        bodyContent()
+    }
+}
+
+@Composable
+fun MatchTeamColumns(
+    vm: MatchViewModel,
+    onPlayerTapped: (TeamId, PlayerId) -> Unit,
+    onPlayerLongPressed: (TeamId, PlayerId) -> Unit,
+    onPreparedSubstitutionsTapped: (TeamId) -> Unit
+) {
+    Row {
+        TeamColumn(
+            team = vm.team1,
+            modifier = Modifier.weight(1f),
+            vm = vm,
+            playerStates = vm.team1PlayerStates,
+            onPlayerTapped = { playerId -> onPlayerTapped(vm.team1.id, playerId) },
+            onPlayerLongPressed = { playerId -> onPlayerLongPressed(vm.team1.id, playerId) },
+            onPreparedSubstitutionsTapped = { onPreparedSubstitutionsTapped(vm.team1.id) }
+        )
+        TeamColumn(
+            team = vm.team2,
+            modifier = Modifier.weight(1f),
+            vm = vm,
+            playerStates = vm.team2PlayerStates,
+            onPlayerTapped = { playerId -> onPlayerTapped(vm.team2.id, playerId) },
+            onPlayerLongPressed = { playerId -> onPlayerLongPressed(vm.team2.id, playerId) },
+            onPreparedSubstitutionsTapped = { onPreparedSubstitutionsTapped(vm.team2.id) }
+        )
     }
 }

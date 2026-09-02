@@ -27,7 +27,6 @@ import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
-import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.ui.common.SingleChoiceDialog
 
@@ -136,47 +135,6 @@ fun SubstituteReasonDialogue(
         optionLabel = { it.label },
         onSelected = { selected = it },
         onConfirm = { onConfirm(it) },
-        onDismiss = onDismiss
-    )
-}
-
-@Composable
-fun SubstituteSummaryDialogue(
-    substitutions: List<PreparedSubstitution>,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    onAddAnother: () -> Unit,
-    onRemove: (PlayerId) -> Unit,
-    labelForSubstitution: (PreparedSubstitution) -> String,
-    canAddAnotherSubstitution: Boolean
-) {
-    SubstitutionBatchReviewDialog(
-        substitutions,
-        labelForSubstitution,
-        onRemove,
-        onAddAnother,
-        onConfirm,
-        onCancel,
-        canAddAnotherSubstitution
-    )
-}
-
-@Composable
-fun SubstitutePlayerOffDialogue(
-    potentialPlayers: List<Player>,
-    onConfirm: (PlayerId) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selected: Player? by remember { mutableStateOf(null) }
-
-    SingleChoiceDialog(
-        title = "Substitution",
-        prompt = "Player coming off:",
-        options = potentialPlayers,
-        selected = selected,
-        optionLabel = { player -> "${player.number}. ${player.name.ifBlank { "(Unnamed)" }}" },
-        onSelected = { selected = it },
-        onConfirm = { onConfirm(it.id) },
         onDismiss = onDismiss
     )
 }
