@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -28,6 +29,7 @@ import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.common.DataTable
 import com.example.fourthofficial.ui.common.TableColumn
@@ -38,7 +40,7 @@ enum class SummaryTab {
 }
 
 @Composable
-fun SummaryScreen(modifier: Modifier = Modifier.Companion, vm: MatchViewModel) {
+fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
     var currentTab by rememberSaveable { mutableStateOf(SummaryTab.Scores) }
     var selectedTeam by rememberSaveable { mutableIntStateOf(1) }
     var selectedHalf by rememberSaveable { mutableIntStateOf(1) }
@@ -90,7 +92,10 @@ fun SummaryScreen(modifier: Modifier = Modifier.Companion, vm: MatchViewModel) {
 }
 
 @Composable
-private fun ScoresTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int)
+{
+    var selectedScore by remember { mutableStateOf<Score?>(null) }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -104,31 +109,56 @@ private fun ScoresTab(modifier: Modifier = Modifier.Companion, vm: MatchViewMode
         )
 
         val events = vm.scoreEvents
-            .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs }
+            .filter { it.teamId == team.id && it.halfIndex == halfIndex }.sortedBy { it.timeMs }
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
-                e.type.label
-            },
+                e.type.label },
             TableColumn(header = "Player", weight = 1.5f) { e ->
-                playerLabel(team, e.playerId)
-            },
+                playerLabel(team, e.playerId) },
             TableColumn<Score>(header = "Time", weight = 0.8f) { e ->
-                vm.formatClock(e.timeMs, false)
-            }
+                vm.formatClock(e.timeMs, false) }
         )
 
         DataTable(
             events = events,
             columns = columns,
             Modifier.fillMaxWidth().weight(1f),
-            keySelector = { it.id.value })
+            keySelector = { it.id.value },
+            onRowClick = { score -> selectedScore = score }
+        )
+
+        val scoreToEdit = selectedScore
+
+        if (scoreToEdit != null) {
+            EditScoreDialog(
+                event = scoreToEdit,
+                players = team.players,
+                initialTimeText = vm.formatClock(scoreToEdit.timeMs, false),
+                maxTimeMs =
+                    if (vm.phase == MatchPhase.FINISHED) { null }
+                    else { vm.displayElapsedMs },
+                onSave = { playerId, scoreType, timeMs ->
+                    vm.updateScore(
+                        eventId = scoreToEdit.id,
+                        playerId = playerId,
+                        scoreType = scoreType,
+                        timeMs = timeMs
+                    )
+                    selectedScore = null
+                },
+                onCancel = { selectedScore = null },
+                onDelete = {
+                    vm.deleteScore(scoreToEdit.id)
+                    selectedScore = null
+                }
+            )
+        }
     }
 }
 
 @Composable
-private fun SubstitutionsTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -166,7 +196,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier.Companion, vm: MatchV
 }
 
 @Composable
-private fun DisciplinesTab(modifier: Modifier = Modifier.Companion, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -204,7 +234,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier.Companion, vm: MatchVie
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier.Companion) {
+private fun ExportTab(modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),

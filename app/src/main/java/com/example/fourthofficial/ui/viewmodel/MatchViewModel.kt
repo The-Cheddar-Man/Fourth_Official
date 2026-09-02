@@ -14,6 +14,7 @@ import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.event.SubstitutionType
+import com.example.fourthofficial.domain.id.EventId
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
@@ -86,6 +87,24 @@ class MatchViewModel : ViewModel() {
     private fun addEvent(event: MatchEvent) {
         matchState = matchState.copy(
             events = matchState.events + event
+        )
+    }
+
+    private fun replaceEvent(updatedEvent: MatchEvent) {
+        matchState = matchState.copy(
+            events = matchState.events.map { event ->
+                if (event.id == updatedEvent.id) {
+                    updatedEvent
+                } else {
+                    event
+                }
+            }
+        )
+    }
+
+    private fun removeEvent(eventId: EventId) {
+        matchState = matchState.copy(
+            events = matchState.events.filterNot { event -> event.id == eventId }
         )
     }
 
@@ -273,6 +292,38 @@ class MatchViewModel : ViewModel() {
         )
 
         addEvent(score)
+    }
+
+    fun updateScore(
+        eventId: EventId,
+        playerId: PlayerId,
+        scoreType: ScoreType,
+        timeMs: Long
+    ) {
+        val existingScore = scoreEvents.find { it.id == eventId } ?: return
+
+        val team = when (existingScore.teamId) {
+            team1.id -> team1
+            team2.id -> team2
+            else -> return
+        }
+
+        if (team.players.none { it.id == playerId }) { return }
+        if (timeMs < 0L) { return }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return }
+
+        replaceEvent(existingScore.copy(
+            playerId = playerId,
+            type = scoreType,
+            timeMs = timeMs)
+        )
+    }
+
+    fun deleteScore(eventId: EventId) {
+        if (scoreEvents.none { it.id == eventId }) {
+            return
+        }
+        removeEvent(eventId)
     }
 
     fun resetScores() {

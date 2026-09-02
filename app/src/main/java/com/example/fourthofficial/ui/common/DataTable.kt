@@ -1,5 +1,6 @@
 package com.example.fourthofficial.ui.common
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,8 +21,9 @@ data class TableColumn<T>(
 fun <T> DataTable(
     events: List<T>,
     columns: List<TableColumn<T>>,
-    modifier: Modifier = Modifier.Companion,
-    keySelector: ((T) -> Any)? = null
+    modifier: Modifier = Modifier,
+    keySelector: ((T) -> Any)? = null,
+    onRowClick: ((T) -> Unit)? = null
 ) {
     LazyColumn(
         modifier = modifier
@@ -42,35 +44,52 @@ fun <T> DataTable(
 
         if (keySelector == null) {
             items(events) { item ->
-                Row(Modifier.fillMaxWidth()) {
-                    columns.forEach { col ->
-                        Text(
-                            col.value(item),
-                            modifier = Modifier.weight(col.weight),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                HorizontalDivider()
+                DataTableRow(
+                    item = item,
+                    columns = columns,
+                    onClick = onRowClick
+                )
             }
         } else {
             items(
                 items = events,
-                key = { keySelector.invoke(it) }
+                key = { keySelector(it) }
             ) { item ->
-                Row(Modifier.fillMaxWidth()) {
-                    columns.forEach { col ->
-                        Text(
-                            col.value(item),
-                            modifier = Modifier.weight(col.weight),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                HorizontalDivider()
+                DataTableRow(
+                    item = item,
+                    columns = columns,
+                    onClick = onRowClick
+                )
             }
         }
     }
+}
+
+@Composable
+private fun <T> DataTableRow(
+    item: T,
+    columns: List<TableColumn<T>>,
+    onClick: ((T) -> Unit)?
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().then(
+            if (onClick != null) {
+                Modifier.clickable { onClick(item) }
+            }
+            else {
+                Modifier
+            }
+        )
+    ) {
+        columns.forEach { col ->
+            Text(
+                text = col.value(item),
+                modifier = Modifier.weight(col.weight),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    HorizontalDivider()
 }
