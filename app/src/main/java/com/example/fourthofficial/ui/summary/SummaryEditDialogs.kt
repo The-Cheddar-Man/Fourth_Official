@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.ScoreType
+import com.example.fourthofficial.domain.event.Substitution
+import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.team.Player
 
@@ -112,6 +114,138 @@ fun EditScoreDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp))
             {
+                OutlinedButton(onClick = { showDeleteConfirmation = true }) { Text("Delete") }
+                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+            }
+        }
+    )
+}
+
+@Composable
+fun EditSubstitutionDialog(
+    event: Substitution,
+    players: List<Player>,
+    initialTimeText: String,
+    maxTimeMs: Long?,
+    errorMessage: String?,
+    onSave: (playerOffId: PlayerId, playerOnId: PlayerId, type: SubstitutionType, timeMs: Long) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var selectedPlayerOffId by remember(event.id.value) { mutableStateOf(event.playerOffId) }
+    var selectedPlayerOnId by remember(event.id.value) { mutableStateOf(event.playerOnId) }
+    var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
+    var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
+    var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
+    val parsedTimeMs = parseMatchTime(timeText)
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val playersAreDifferent = selectedPlayerOffId != selectedPlayerOnId
+    val timeIsValid = parsedTimeMs != null && !timeIsAfterCurrentMatch
+    val canSave = timeIsValid && playersAreDifferent
+    val selectedPlayerOff = players.find { it.id == selectedPlayerOffId }
+    val selectedPlayerOn = players.find { it.id == selectedPlayerOnId }
+    val sortedPlayers = players.sortedBy { it.number }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Substitution") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Delete this substitution event?")
+                    if (errorMessage != null) { Text(errorMessage) }
+                }
+            },
+            confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false })
+                { Text("Cancel") }
+            }
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Edit Substitution") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SelectionField(
+                    label = "Player Off",
+                    value = selectedPlayerOff?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerOffId = it.id }
+                )
+
+                SelectionField(
+                    label = "Reason",
+                    value = selectedType.label,
+                    options = SubstitutionType.entries,
+                    optionLabel = { it.label },
+                    onSelected = { selectedType = it }
+                )
+
+                SelectionField(
+                    label = "Player On",
+                    value = selectedPlayerOn?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerOnId = it.id }
+                )
+
+                OutlinedTextField(
+                    value = timeText,
+                    onValueChange = { timeText = it },
+                    label = { Text("Time (MM:SS)") },
+                    singleLine = true,
+                    isError = timeText.isNotBlank() && !timeIsValid,
+                    supportingText = {
+                        when {
+                            timeText.isNotBlank() && parsedTimeMs == null -> {
+                                Text("Enter time as MM:SS")
+                            }
+
+                            timeIsAfterCurrentMatch -> {
+                                Text("Time cannot be later than the current match clock.")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (!playersAreDifferent) {
+                    Text("Player Off and Player On must be different players.")
+                }
+
+                if (errorMessage != null) {
+                    Text(errorMessage)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = canSave,
+                onClick = {
+                    val timeMs = parsedTimeMs?.takeIf { canSave } ?: return@Button
+                    val savedTimeMs =
+                        if (timeMs / 1000L == event.timeMs / 1000L) {
+                            event.timeMs
+                        } else {
+                            timeMs
+                        }
+
+                    onSave(selectedPlayerOffId, selectedPlayerOnId,
+                        selectedType, savedTimeMs)
+                }
+            )
+            { Text("Save") }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(onClick = { showDeleteConfirmation = true }) { Text("Delete") }
                 OutlinedButton(onClick = onCancel) { Text("Cancel") }
             }

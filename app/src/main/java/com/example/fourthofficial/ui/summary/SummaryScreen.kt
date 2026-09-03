@@ -109,7 +109,8 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
         )
 
         val events = vm.scoreEvents
-            .filter { it.teamId == team.id && it.halfIndex == halfIndex }.sortedBy { it.timeMs }
+            .filter { it.teamId == team.id && it.halfIndex == halfIndex }
+            .sortedBy { it.timeMs / 1000L}
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
@@ -139,13 +140,13 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                     if (vm.phase == MatchPhase.FINISHED) { null }
                     else { vm.displayElapsedMs },
                 onSave = { playerId, scoreType, timeMs ->
-                    vm.updateScore(
+                    val saved = vm.updateScore(
                         eventId = scoreToEdit.id,
                         playerId = playerId,
                         scoreType = scoreType,
                         timeMs = timeMs
                     )
-                    selectedScore = null
+                    if (saved) { selectedScore = null }
                 },
                 onCancel = { selectedScore = null },
                 onDelete = {
@@ -159,18 +160,19 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
 
 @Composable
 private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+    var selectedSubstitution by remember { mutableStateOf<Substitution?>(null) }
+    var editError by remember { mutableStateOf<String?>(null) }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
         Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
 
         val events = vm.subEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs }
+            .sortedBy { it.timeMs / 1000L}
 
         val columns = listOf(
             TableColumn(header = "Off", weight = 1.5f) { e ->
@@ -190,8 +192,63 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
         DataTable(
             events = events,
             columns = columns,
-            Modifier.fillMaxWidth().weight(1f),
-            keySelector = { it.id.value })
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            keySelector = { it.id.value },
+            onRowClick = { substitution ->
+                editError = null
+                selectedSubstitution = substitution
+            }
+        )
+
+        val substitutionToEdit = selectedSubstitution
+
+        if (substitutionToEdit != null) {
+            EditSubstitutionDialog(
+                event = substitutionToEdit,
+                players = team.players,
+                initialTimeText = vm.formatClock(substitutionToEdit.timeMs, false),
+                maxTimeMs =
+                    if (vm.phase == MatchPhase.FINISHED) {
+                        null
+                    } else {
+                        vm.displayElapsedMs
+                    },
+                errorMessage = editError,
+                onSave = { playerOffId, playerOnId, type, timeMs ->
+                    val saved = vm.updateSubstitution(
+                            eventId = substitutionToEdit.id,
+                            playerOffId = playerOffId,
+                            playerOnId = playerOnId,
+                            type = type,
+                            timeMs = timeMs
+                        )
+
+                    if (saved) {
+                        editError = null
+                        selectedSubstitution = null
+                    }
+                    else {
+                        editError = "This change would make the match history invalid."
+                    }
+                },
+                onCancel = {
+                    editError = null
+                    selectedSubstitution = null
+                },
+
+                onDelete = {
+                    val deleted = vm.deleteSubstitution(substitutionToEdit.id)
+
+                    if (deleted) {
+                        editError = null
+                        selectedSubstitution = null
+                    }
+                    else {
+                        editError = "This substitution cannot be deleted because later match events depend on it."
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -208,7 +265,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 
         val events = vm.discEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs }
+            .sortedBy { it.timeMs / 1000L}
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->

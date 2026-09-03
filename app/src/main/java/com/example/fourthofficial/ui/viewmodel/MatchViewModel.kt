@@ -42,6 +42,8 @@ import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerR
 import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
 import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
+import com.example.fourthofficial.domain.rules.MatchEventReplayResult
+import com.example.fourthofficial.domain.rules.replayMatchEvents
 
 class MatchViewModel : ViewModel() {
 
@@ -90,22 +92,47 @@ class MatchViewModel : ViewModel() {
         )
     }
 
-    private fun replaceEvent(updatedEvent: MatchEvent) {
-        matchState = matchState.copy(
-            events = matchState.events.map { event ->
-                if (event.id == updatedEvent.id) {
-                    updatedEvent
-                } else {
-                    event
-                }
-            }
-        )
-    }
+    private val completedFirstHalfPlayingMsForReplay: Long?
+        get() = when (phase) {
+            MatchPhase.NOT_STARTED,
+            MatchPhase.FIRST_HALF -> null
 
-    private fun removeEvent(eventId: EventId) {
-        matchState = matchState.copy(
-            events = matchState.events.filterNot { event -> event.id == eventId }
+            MatchPhase.HALF_TIME -> clock.totalElapsedMs
+
+            MatchPhase.SECOND_HALF,
+            MatchPhase.FINISHED -> clock.totalElapsedMs - clock.halfElapsedMs
+        }
+
+    private fun commitEventHistory(candidateEvents: List<MatchEvent>): MatchEventReplayResult {
+        val result = replayMatchEvents(
+            events = candidateEvents,
+            initialPlayerStates = mapOf(
+                team1.id to defaultPlayerStates(team1),
+                team2.id to defaultPlayerStates(team2)
+            ),
+            halfDurationMs = halfDurationMs,
+            completedFirstHalfPlayingMs = completedFirstHalfPlayingMsForReplay
+            )
+
+        if (result !is MatchEventReplayResult.Success) { return result }
+
+        val team1States = result.playerStates[team1.id] ?: return MatchEventReplayResult.Failure(
+            eventId = null,
+            message = "Could not rebuild Team 1 player state."
         )
+
+        val team2States = result.playerStates[team2.id] ?: return MatchEventReplayResult.Failure(
+            eventId = null,
+            message = "Could not rebuild Team 2 player state."
+        )
+
+        matchState = matchState.copy(
+            events = result.events,
+            team1 = matchState.team1.copy(playerStates = team1States),
+            team2 = matchState.team2.copy(playerStates = team2States)
+        )
+
+        return result
     }
 
     fun canActOnPlayer(state: MatchPlayerState): Boolean {
@@ -299,31 +326,37 @@ class MatchViewModel : ViewModel() {
         playerId: PlayerId,
         scoreType: ScoreType,
         timeMs: Long
-    ) {
-        val existingScore = scoreEvents.find { it.id == eventId } ?: return
+    ): Boolean {
+        val existingScore = scoreEvents.find { it.id == eventId } ?: return false
 
         val team = when (existingScore.teamId) {
             team1.id -> team1
             team2.id -> team2
-            else -> return
+            else -> return false
         }
 
-        if (team.players.none { it.id == playerId }) { return }
-        if (timeMs < 0L) { return }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return }
+        if (team.players.none { it.id == playerId }) { return false }
+        if (timeMs < 0L) { return false }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return false }
 
-        replaceEvent(existingScore.copy(
+        val updatedScore = existingScore.copy(
             playerId = playerId,
             type = scoreType,
             timeMs = timeMs)
-        )
+
+        val candidateEvents = matchState.events.map { event ->
+            if (event.id == eventId) { updatedScore }
+            else { event }
+        }
+
+        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
     }
 
-    fun deleteScore(eventId: EventId) {
-        if (scoreEvents.none { it.id == eventId }) {
-            return
-        }
-        removeEvent(eventId)
+    fun deleteScore(eventId: EventId): Boolean {
+        if (scoreEvents.none { it.id == eventId }) { return false }
+
+        val candidateEvents = matchState.events.filterNot { it.id == eventId }
+        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
     }
 
     fun resetScores() {
@@ -562,6 +595,52 @@ class MatchViewModel : ViewModel() {
             events = matchState.events.filterNot { it is Substitution },
             preparedSubstitutionBatches = emptyMap()
         )
+    }
+
+    fun updateSubstitution(eventId: EventId, playerOffId: PlayerId,
+                           playerOnId: PlayerId, type: SubstitutionType, timeMs: Long): Boolean
+    {
+        val existingSubstitution = subEvents.find { event -> event.id == eventId } ?: return false
+
+        val team = when (existingSubstitution.teamId) {
+                team1.id -> team1
+                team2.id -> team2
+                else -> return false
+            }
+
+        if (team.players.none { it.id == playerOffId } || team.players.none { it.id == playerOnId })
+        {
+            return false
+        }
+
+        if (playerOffId == playerOnId) { return false }
+        if (timeMs < 0L) { return false }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return false }
+
+        val updatedSubstitution = existingSubstitution.copy(
+            playerOffId = playerOffId,
+            playerOnId = playerOnId,
+            type = type,
+            timeMs = timeMs
+        )
+
+        val candidateEvents = matchState.events.map { event ->
+            if (event.id == eventId) {
+                updatedSubstitution
+            } else {
+                event
+            }
+        }
+
+        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
+    }
+
+    fun deleteSubstitution(eventId: EventId): Boolean
+    {
+        if (subEvents.none { event -> event.id == eventId }) { return false }
+        val candidateEvents = matchState.events.filterNot { event -> event.id == eventId }
+
+        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
     }
     //endregion
 
