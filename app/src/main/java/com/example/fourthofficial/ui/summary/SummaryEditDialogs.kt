@@ -9,6 +9,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,6 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.fourthofficial.domain.event.Discipline
+import com.example.fourthofficial.domain.event.DisciplineReason
+import com.example.fourthofficial.domain.event.DisciplineReasonRed
+import com.example.fourthofficial.domain.event.DisciplineReasonYellow
+import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.Substitution
@@ -32,6 +38,7 @@ fun EditScoreDialog(
     players: List<Player>,
     initialTimeText: String,
     maxTimeMs: Long?,
+    errorMessage: String?,
     onSave: (playerId: PlayerId, type: ScoreType, timeMs: Long) -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
@@ -49,7 +56,16 @@ fun EditScoreDialog(
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete Score") },
-            text = { Text("Delete this score event?") },
+            text = {
+                Text("Delete this score event?")
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
             confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
             dismissButton = { OutlinedButton(onClick = {
                 showDeleteConfirmation = false }) { Text("Cancel") }
@@ -99,6 +115,13 @@ fun EditScoreDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
         confirmButton = {
@@ -254,6 +277,145 @@ fun EditSubstitutionDialog(
 }
 
 @Composable
+fun EditDisciplineDialog(
+    event: Discipline,
+    players: List<Player>,
+    initialTimeText: String,
+    maxTimeMs: Long?,
+    errorMessage: String?,
+    onSave: (playerId: PlayerId, type: DisciplineType, reason: DisciplineReason, timeMs: Long) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var selectedPlayerId by remember(event.id.value) { mutableStateOf(event.playerId) }
+    var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
+    var selectedReason by remember(event.id.value) { mutableStateOf(event.reason) }
+    var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
+    var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
+    val parsedTimeMs = parseMatchTime(timeText)
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsAfterCurrentMatch
+    val selectedPlayer = players.find { it.id == selectedPlayerId }
+    val sortedPlayers = players.sortedBy { it.number }
+    val validReasons = disciplineReasonsFor(selectedType)
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Discipline") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Delete this discipline event?")
+                    if (errorMessage != null) { Text(errorMessage) }
+                }
+            },
+            confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
+            dismissButton = { OutlinedButton(onClick = { showDeleteConfirmation = false }) {
+                Text("Cancel") }
+            }
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Edit Discipline") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SelectionField(
+                    label = "Card",
+                    value = selectedType.label,
+                    options = DisciplineType.entries,
+                    optionLabel = { it.label },
+                    onSelected = { newType ->
+                        selectedType = newType
+
+                        val newReasons = disciplineReasonsFor(newType)
+
+                        selectedReason = newReasons.firstOrNull{
+                            it.label == selectedReason.label } ?: newReasons.first()
+                    }
+                )
+
+                SelectionField(
+                    label = "Reason",
+                    value = selectedReason.label,
+                    options = validReasons,
+                    optionLabel = { it.label },
+                    onSelected = { selectedReason = it }
+                )
+
+                SelectionField(
+                    label = "Player",
+                    value = selectedPlayer?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerId = it.id }
+                )
+
+                OutlinedTextField(
+                    value = timeText,
+                    onValueChange = { timeText = it },
+                    label = { Text("Time (MM:SS)") },
+                    singleLine = true,
+                    isError = timeText.isNotBlank() && !timeIsValid,
+                    supportingText = {
+                        when {
+                            timeText.isNotBlank() && parsedTimeMs == null -> {
+                                Text("Enter time as MM:SS")
+                            }
+                            timeIsAfterCurrentMatch -> {
+                                Text("Time cannot be later than the current match clock.")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (errorMessage != null) { Text(errorMessage) }
+            }
+        },
+
+        confirmButton = {
+            Button(
+                enabled = timeIsValid,
+                onClick = {
+                    val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+
+                    val savedTimeMs =
+                        if (timeMs / 1000L == event.timeMs / 1000L) {
+                            event.timeMs
+                        } else {
+                            timeMs
+                        }
+
+                    onSave(selectedPlayerId, selectedType,
+                        selectedReason, savedTimeMs)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showDeleteConfirmation = true }
+                ) {
+                    Text("Delete")
+                }
+
+                OutlinedButton(onClick = onCancel
+                ) {
+                    Text("Cancel")
+                }
+            }
+        }
+    )
+}
+
+@Composable
 private fun <T> SelectionField(
     label: String,
     value: String,
@@ -292,6 +454,13 @@ private fun <T> SelectionField(
                 }
             }
         }
+    }
+}
+
+private fun disciplineReasonsFor(type: DisciplineType): List<DisciplineReason> {
+    return when (type) {
+        DisciplineType.YELLOW -> DisciplineReasonYellow.entries
+        DisciplineType.RED -> DisciplineReasonRed.entries
     }
 }
 

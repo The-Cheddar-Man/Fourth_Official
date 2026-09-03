@@ -100,7 +100,7 @@ fun TeamColumn(
                         if (vm.isYellowActive(state)) {
                             Text(
                                 "Yellow: ${
-                                    vm.formatClock(vm.yellowRemainingMs(state), false)
+                                    vm.formatClock(vm.yellowRemainingMs(state), true)
                                 }"
                             )
                         }

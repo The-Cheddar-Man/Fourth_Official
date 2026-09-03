@@ -20,6 +20,7 @@ import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
+import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
@@ -132,7 +133,17 @@ class MatchViewModel : ViewModel() {
             team2 = matchState.team2.copy(playerStates = team2States)
         )
 
+        reconcilePreparedSubstitutionBatches()
+
         return result
+    }
+
+    private fun commitEventEdit(candidateEvents: List<MatchEvent>): EventEditResult {
+        return when (val result = commitEventHistory(candidateEvents))
+        {
+            is MatchEventReplayResult.Success -> { EventEditResult.Success }
+            is MatchEventReplayResult.Failure -> { EventEditResult.Failure(result.message) }
+        }
     }
 
     fun canActOnPlayer(state: MatchPlayerState): Boolean {
@@ -326,18 +337,27 @@ class MatchViewModel : ViewModel() {
         playerId: PlayerId,
         scoreType: ScoreType,
         timeMs: Long
-    ): Boolean {
-        val existingScore = scoreEvents.find { it.id == eventId } ?: return false
+    ): EventEditResult {
+        val existingScore = scoreEvents.find { it.id == eventId } ?: return EventEditResult.Failure(
+            "Score event could not be found.")
 
         val team = when (existingScore.teamId) {
             team1.id -> team1
             team2.id -> team2
-            else -> return false
+            else -> return EventEditResult.Failure(
+                "Score event refers to an unknown team."
+            )
         }
 
-        if (team.players.none { it.id == playerId }) { return false }
-        if (timeMs < 0L) { return false }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return false }
+        if (team.players.none { it.id == playerId }) { return EventEditResult.Failure(
+            "Selected player is not part of this team."
+        ) }
+        if (timeMs < 0L) { return EventEditResult.Failure(
+            "Time cannot be negative."
+        ) }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
+            "Time cannot be later than the current match clock."
+        ) }
 
         val updatedScore = existingScore.copy(
             playerId = playerId,
@@ -349,14 +369,16 @@ class MatchViewModel : ViewModel() {
             else { event }
         }
 
-        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
+        return commitEventEdit(candidateEvents)
     }
 
-    fun deleteScore(eventId: EventId): Boolean {
-        if (scoreEvents.none { it.id == eventId }) { return false }
+    fun deleteScore(eventId: EventId): EventEditResult {
+        if (scoreEvents.none { it.id == eventId }) { return EventEditResult.Failure(
+            "Score event could not be found."
+        ) }
 
         val candidateEvents = matchState.events.filterNot { it.id == eventId }
-        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
+        return commitEventEdit(candidateEvents)
     }
 
     fun resetScores() {
@@ -563,31 +585,62 @@ class MatchViewModel : ViewModel() {
             preparedSubstitutionBatches = matchState.preparedSubstitutionBatches - teamId)
     }
 
-    private fun reconcilePreparedSubstitutionsAfterCard(teamId: TeamId, playerId: PlayerId)
-    {
-        val batch = getPreparedSubstitutionBatch(teamId) ?: return
+    private fun reconcilePreparedSubstitutionBatches() {
+        if (matchState.preparedSubstitutionBatches.isEmpty()) { return }
 
-        val updatedSubstitutions =
-            batch.substitutions.filterNot { substitution ->
-                substitution.playerOffId == playerId }.map { substitution ->
-                    if (substitution.playerOnId == playerId) {
-                        substitution.copy(playerOnId = null)
+        val reconciledBatches = matchState.preparedSubstitutionBatches.mapNotNull { (teamId, batch) ->
+            val teamStates = when (teamId) {
+                    team1.id -> team1PlayerStates
+                    team2.id -> team2PlayerStates
+                    else -> return@mapNotNull null
+                }
+
+            val validOutgoingSubstitutions = batch.substitutions.filter { substitution ->
+                    val playerOffState = teamStates[substitution.playerOffId] ?: return@filter false
+                    canSubstituteOff(
+                        state = playerOffState,
+                        totalElapsedMs = clock.totalElapsedMs
+                    )
+                }
+
+            val usedPlayerOnIds = mutableSetOf<PlayerId>()
+            val reconciledSubstitutions = validOutgoingSubstitutions.map { substitution ->
+                    val playerOnId = substitution.playerOnId ?: return@map substitution
+                    if (playerOnId == substitution.playerOffId) {
+                        return@map substitution.copy(playerOnId = null)
                     }
-                    else {
+
+                    val playerOnState = teamStates[playerOnId] ?: return@map substitution.copy(playerOnId = null)
+
+                    val playerCanReturn = canReturn(
+                        events = subEvents,
+                        teamId = teamId,
+                        playerId = playerOnId
+                    )
+
+                    val incomingIsValid = canSubstituteOn(
+                        state = playerOnState,
+                        totalElapsedMs = clock.totalElapsedMs,
+                        alreadyUsed = playerOnId in usedPlayerOnIds,
+                        canReturn = playerCanReturn
+                    )
+
+                    if (incomingIsValid) {
+                        usedPlayerOnIds += playerOnId
                         substitution
+                    } else {
+                        substitution.copy(playerOnId = null)
                     }
                 }
 
-        val updatedBatches =
-            if (updatedSubstitutions.isEmpty()) { matchState.preparedSubstitutionBatches - teamId }
-            else {
-                matchState.preparedSubstitutionBatches +
-                        (teamId to batch.copy(substitutions = updatedSubstitutions))
+            if (reconciledSubstitutions.isEmpty()) {
+                null
+            } else {
+                teamId to batch.copy(substitutions = reconciledSubstitutions)
             }
+        }.toMap()
 
-        matchState = matchState.copy(
-            preparedSubstitutionBatches = updatedBatches
-        )
+        matchState = matchState.copy(preparedSubstitutionBatches = reconciledBatches)
     }
 
     fun resetSubstitutions() {
@@ -598,24 +651,43 @@ class MatchViewModel : ViewModel() {
     }
 
     fun updateSubstitution(eventId: EventId, playerOffId: PlayerId,
-                           playerOnId: PlayerId, type: SubstitutionType, timeMs: Long): Boolean
+                           playerOnId: PlayerId, type: SubstitutionType, timeMs: Long): EventEditResult
     {
-        val existingSubstitution = subEvents.find { event -> event.id == eventId } ?: return false
+        val existingSubstitution = subEvents.find { event -> event.id == eventId } ?: return EventEditResult.Failure(
+            "Substitution event could not be found."
+        )
 
         val team = when (existingSubstitution.teamId) {
                 team1.id -> team1
                 team2.id -> team2
-                else -> return false
+                else -> return EventEditResult.Failure(
+                    "Substitution refers to an unknown team."
+                )
             }
 
-        if (team.players.none { it.id == playerOffId } || team.players.none { it.id == playerOnId })
+        if (team.players.none { it.id == playerOffId })
         {
-            return false
+            return EventEditResult.Failure(
+                "Outgoing player is not part of this team."
+            )
         }
 
-        if (playerOffId == playerOnId) { return false }
-        if (timeMs < 0L) { return false }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return false }
+        if (team.players.none { it.id == playerOnId })
+        {
+            return EventEditResult.Failure(
+                "Incoming player is not part of this team."
+            )
+        }
+
+        if (playerOffId == playerOnId) { return EventEditResult.Failure(
+            "A player cannot substitute for themselves."
+        ) }
+        if (timeMs < 0L) { return EventEditResult.Failure(
+            "Time cannot be negative."
+        ) }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
+            "Time cannot be later than the current match clock."
+        ) }
 
         val updatedSubstitution = existingSubstitution.copy(
             playerOffId = playerOffId,
@@ -632,15 +704,17 @@ class MatchViewModel : ViewModel() {
             }
         }
 
-        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
+        return commitEventEdit(candidateEvents)
     }
 
-    fun deleteSubstitution(eventId: EventId): Boolean
+    fun deleteSubstitution(eventId: EventId): EventEditResult
     {
-        if (subEvents.none { event -> event.id == eventId }) { return false }
+        if (subEvents.none { event -> event.id == eventId }) { return EventEditResult.Failure(
+            "Substitution event could not be found."
+        ) }
         val candidateEvents = matchState.events.filterNot { event -> event.id == eventId }
 
-        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
+        return commitEventEdit(candidateEvents)
     }
     //endregion
 
@@ -671,16 +745,73 @@ class MatchViewModel : ViewModel() {
         )
         addEvent(discs)
 
+        val eventPlayingTimeMs = clock.totalElapsedMs - (displayElapsedMs - eventTimeMs)
+
         when {
             type == DisciplineType.RED -> applyRed(teamId, playerId)
             isSecondYellow -> applyRed(teamId, playerId)
-            else -> applyYellow(teamId, playerId)
+            else -> applyYellow(teamId, playerId, eventPlayingTimeMs)
         }
 
-        reconcilePreparedSubstitutionsAfterCard(teamId = teamId, playerId = playerId)
+        reconcilePreparedSubstitutionBatches()
     }
 
-    private fun applyYellow(teamId: TeamId, playerId: PlayerId) {
+    fun updateDiscipline(eventId: EventId, playerId: PlayerId,
+        type: DisciplineType, reason: DisciplineReason, timeMs: Long): EventEditResult  {
+
+        val existingDiscipline = discEvents.find { event -> event.id == eventId } ?: return EventEditResult.Failure(
+            "Discipline event could not be found."
+        )
+        val team = when (existingDiscipline.teamId) {
+                team1.id -> team1
+                team2.id -> team2
+                else -> return EventEditResult.Failure(
+                    "Discipline event refers to an unknown team."
+                )
+            }
+
+        if (team.players.none { it.id == playerId }) { return EventEditResult.Failure(
+            "Selected player is not part of this team."
+        ) }
+        if (!isDisciplineReasonValid(type = type, reason = reason)) { return EventEditResult.Failure(
+            "This reason is not valid for the selected card type."
+        ) }
+        if (timeMs < 0L) { return EventEditResult.Failure(
+            "Time cannot be negative."
+        ) }
+        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
+            "Time cannot be later than the current match clock."
+        ) }
+
+        val updatedDiscipline = existingDiscipline.copy(
+                playerId = playerId,
+                type = type,
+                reason = reason,
+                timeMs = timeMs,
+                isSecondYellow = false
+            )
+
+        val candidateEvents = matchState.events.map { event ->
+                if (event.id == eventId) {
+                    updatedDiscipline
+                } else {
+                    event
+                }
+            }
+
+        return commitEventEdit(candidateEvents)
+    }
+
+    fun deleteDiscipline(eventId: EventId): EventEditResult  {
+        if (discEvents.none { event -> event.id == eventId }) { return EventEditResult.Failure(
+            "Discipline event could not be found."
+        ) }
+
+        val candidateEvents = matchState.events.filterNot { event -> event.id == eventId }
+        return commitEventEdit(candidateEvents)
+    }
+
+    private fun applyYellow(teamId: TeamId, playerId: PlayerId, eventPlayingTimeMs: Long) {
         val teamStates = when (teamId) {
             team1.id -> team1PlayerStates
             team2.id -> team2PlayerStates
@@ -688,7 +819,7 @@ class MatchViewModel : ViewModel() {
         }
 
         val state = teamStates[playerId] ?: return
-        val updatedState = applyYellowCard(state = state, totalElapsedMs = clock.totalElapsedMs)
+        val updatedState = applyYellowCard(state = state, totalElapsedMs = eventPlayingTimeMs)
 
         updatePlayerStates(teamId, teamStates + (playerId to updatedState))
     }

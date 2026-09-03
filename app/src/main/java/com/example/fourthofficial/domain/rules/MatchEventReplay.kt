@@ -61,11 +61,15 @@ fun replayMatchEvents(
                         eventId = event.id,
                         message = "Score refers to a player who is not in this team.")
 
-                if (!canActAt(state = state, playingTimeMs = playingTimeMs))
-                {
+                val unavailableReason = playerUnavailableReason(
+                    state = state,
+                    playingTimeMs = playingTimeMs
+                )
+
+                if (unavailableReason != null) {
                     return MatchEventReplayResult.Failure(
                         eventId = event.id,
-                        message = "Scoring player was not eligible to act at this point in the match."
+                        message = "Scoring player $unavailableReason at this time."
                     )
                 }
             }
@@ -90,6 +94,18 @@ fun replayMatchEvents(
                             message = "Incoming player is not in this team."
                         )
 
+                val outgoingUnavailableReason = playerUnavailableReason(
+                    state = playerOffState,
+                    playingTimeMs = playingTimeMs
+                )
+
+                if (outgoingUnavailableReason != null) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Outgoing player $outgoingUnavailableReason at this time."
+                    )
+                }
+
                 if (!canSubstituteOff(state = playerOffState, totalElapsedMs = playingTimeMs))
                 {
                     return MatchEventReplayResult.Failure(
@@ -103,6 +119,35 @@ fun replayMatchEvents(
                         teamId = event.teamId,
                         playerId = event.playerOnId
                     )
+
+                if (playerOnState.isRedCarded) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Incoming player had already been sent off."
+                    )
+                }
+
+                if (isYellowActive(state = playerOnState, totalElapsedMs = playingTimeMs)
+                ) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Incoming player was serving a yellow-card suspension."
+                    )
+                }
+
+                if (playerOnState.isOnField) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Incoming player was already on the field."
+                    )
+                }
+
+                if (!playerCanReturn) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Incoming player was not permitted to return after their earlier substitution."
+                    )
+                }
 
                 if (!canSubstituteOn(state = playerOnState,
                         totalElapsedMs = playingTimeMs, canReturn = playerCanReturn)
@@ -139,11 +184,15 @@ fun replayMatchEvents(
                             message = "Discipline event refers to a player who is not in this team."
                         )
 
-                if (!canActAt(state = state, playingTimeMs = playingTimeMs))
-                {
+                val unavailableReason = playerUnavailableReason(
+                    state = state,
+                    playingTimeMs = playingTimeMs
+                )
+
+                if (unavailableReason != null) {
                     return MatchEventReplayResult.Failure(
                         eventId = event.id,
-                        message = "Carded player was not eligible to act at this point in the match."
+                        message = "Carded  player $unavailableReason at this time."
                     )
                 }
 
@@ -176,7 +225,10 @@ fun replayMatchEvents(
                     when {
                         event.type == DisciplineType.RED -> { applyRedCard(state) }
                         isSecondYellow -> { applyRedCard(state) }
-                        else -> { applyYellowCard(state = state, totalElapsedMs = playingTimeMs) }
+                        else -> {
+                            val yellowStartPlayingMs = playingTimeMs - (event.timeMs % 1000L)
+                            applyYellowCard(state = state, totalElapsedMs = yellowStartPlayingMs)
+                        }
                     }
 
                 teamStates[event.playerId] = updatedState
@@ -226,11 +278,13 @@ private fun eventPlayingTimeMs(
     }
 }
 
-private fun canActAt(
-    state: MatchPlayerState,
-    playingTimeMs: Long
-): Boolean {
+private fun playerUnavailableReason(state: MatchPlayerState, playingTimeMs: Long): String? {
 
-    return state.isOnField && !state.isRedCarded &&
-            !isYellowActive(state = state, totalElapsedMs = playingTimeMs)
+    if (state.isRedCarded) { return "had already been sent off" }
+    if (!state.isOnField) { return "was not on the field" }
+    if (isYellowActive(state = state, totalElapsedMs = playingTimeMs)) {
+        return "was serving a yellow-card suspension"
+    }
+
+    return null
 }

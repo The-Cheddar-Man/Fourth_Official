@@ -30,6 +30,7 @@ import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.match.MatchPhase
+import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.common.DataTable
 import com.example.fourthofficial.ui.common.TableColumn
@@ -95,6 +96,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
 private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int)
 {
     var selectedScore by remember { mutableStateOf<Score?>(null) }
+    var editError by remember { mutableStateOf<String?>(null) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -126,7 +128,9 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
             columns = columns,
             Modifier.fillMaxWidth().weight(1f),
             keySelector = { it.id.value },
-            onRowClick = { score -> selectedScore = score }
+            onRowClick = { score ->
+                editError = null
+                selectedScore = score }
         )
 
         val scoreToEdit = selectedScore
@@ -139,19 +143,39 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                 maxTimeMs =
                     if (vm.phase == MatchPhase.FINISHED) { null }
                     else { vm.displayElapsedMs },
+                errorMessage = editError,
                 onSave = { playerId, scoreType, timeMs ->
-                    val saved = vm.updateScore(
-                        eventId = scoreToEdit.id,
-                        playerId = playerId,
-                        scoreType = scoreType,
-                        timeMs = timeMs
-                    )
-                    if (saved) { selectedScore = null }
+                    when (val result = vm.updateScore(
+                            eventId = scoreToEdit.id,
+                            playerId = playerId,
+                            scoreType = scoreType,
+                            timeMs = timeMs)
+                    ) {
+                        EventEditResult.Success -> {
+                            editError = null
+                            selectedScore = null
+                        }
+
+                        is EventEditResult.Failure -> {
+                            editError = result.message
+                        }
+                    }
                 },
-                onCancel = { selectedScore = null },
+                onCancel = {
+                    editError = null
+                    selectedScore = null },
                 onDelete = {
-                    vm.deleteScore(scoreToEdit.id)
-                    selectedScore = null
+                    when (val result = vm.deleteScore(scoreToEdit.id)
+                    ) {
+                        EventEditResult.Success -> {
+                            editError = null
+                            selectedScore = null
+                        }
+
+                        is EventEditResult.Failure -> {
+                            editError = result.message
+                        }
+                    }
                 }
             )
         }
@@ -215,20 +239,21 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                     },
                 errorMessage = editError,
                 onSave = { playerOffId, playerOnId, type, timeMs ->
-                    val saved = vm.updateSubstitution(
-                            eventId = substitutionToEdit.id,
-                            playerOffId = playerOffId,
-                            playerOnId = playerOnId,
-                            type = type,
-                            timeMs = timeMs
-                        )
+                    when (val result = vm.updateSubstitution(
+                        eventId = substitutionToEdit.id,
+                        playerOffId = playerOffId,
+                        playerOnId = playerOnId,
+                        type = type,
+                        timeMs = timeMs)
+                    ) {
+                        EventEditResult.Success -> {
+                            editError = null
+                            selectedSubstitution = null
+                        }
 
-                    if (saved) {
-                        editError = null
-                        selectedSubstitution = null
-                    }
-                    else {
-                        editError = "This change would make the match history invalid."
+                        is EventEditResult.Failure -> {
+                            editError = result.message
+                        }
                     }
                 },
                 onCancel = {
@@ -236,16 +261,17 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                     selectedSubstitution = null
                 },
 
-                onDelete = {
-                    val deleted = vm.deleteSubstitution(substitutionToEdit.id)
-
-                    if (deleted) {
+                onDelete = {when (val result = vm.deleteSubstitution(substitutionToEdit.id)
+                ) {
+                    EventEditResult.Success -> {
                         editError = null
                         selectedSubstitution = null
                     }
-                    else {
-                        editError = "This substitution cannot be deleted because later match events depend on it."
+
+                    is EventEditResult.Failure -> {
+                        editError = result.message
                     }
+                }
                 }
             )
         }
@@ -254,12 +280,12 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
 
 @Composable
 private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+    var selectedDiscipline by remember { mutableStateOf<Discipline?>(null) }
+    var editError by remember { mutableStateOf<String?>(null) }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
         Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
 
@@ -285,8 +311,62 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
         DataTable(
             events = events,
             columns = columns,
-            Modifier.fillMaxWidth().weight(1f),
-            keySelector = { it.id.value })
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            keySelector = { it.id.value },
+            onRowClick = { discipline ->
+                editError = null
+                selectedDiscipline = discipline
+            }
+        )
+    }
+
+    val disciplineToEdit = selectedDiscipline
+
+    if (disciplineToEdit != null) {
+        EditDisciplineDialog(
+            event = disciplineToEdit,
+            players = team.players,
+            initialTimeText = vm.formatClock(disciplineToEdit.timeMs, false),
+            maxTimeMs = if (vm.phase == MatchPhase.FINISHED) { null } else { vm.displayElapsedMs },
+            errorMessage = editError,
+            onSave = { playerId, type, reason, timeMs ->
+                when (val result = vm.updateDiscipline(
+                    eventId = disciplineToEdit.id,
+                    playerId = playerId,
+                    type = type,
+                    reason = reason,
+                    timeMs = timeMs)
+                ) {
+                    EventEditResult.Success -> {
+                        editError = null
+                        selectedDiscipline = null
+                    }
+
+                    is EventEditResult.Failure -> {
+                        editError = result.message
+                    }
+                }
+            },
+
+            onCancel = {
+                editError = null
+                selectedDiscipline = null
+            },
+
+            onDelete = {
+                when (val result = vm.deleteDiscipline(disciplineToEdit.id)
+                ) {
+                    EventEditResult.Success -> {
+                        editError = null
+                        selectedDiscipline = null
+                    }
+
+                    is EventEditResult.Failure -> {
+                        editError = result.message
+                    }
+                }
+            }
+        )
     }
 }
 
