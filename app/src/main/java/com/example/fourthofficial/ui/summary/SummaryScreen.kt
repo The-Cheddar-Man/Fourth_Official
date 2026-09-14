@@ -1,6 +1,8 @@
 package com.example.fourthofficial.ui.summary
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -29,8 +34,13 @@ import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Team
+import com.example.fourthofficial.export.PdfEventType
+import com.example.fourthofficial.export.TeamPdfExportOptions
+import com.example.fourthofficial.export.TeamPdfExporter
 import com.example.fourthofficial.ui.common.DataTable
 import com.example.fourthofficial.ui.common.TableColumn
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
@@ -86,7 +96,11 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
             )
 
             SummaryTab.Disciplines -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Export -> ExportTab()
+            SummaryTab.Export -> ExportTab(
+                vm = vm,
+                selectedTeamIndex = selectedTeam,
+                onSelectedTeamChange = { selectedTeam = it }
+            )
         }
     }
 }
@@ -366,16 +380,202 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier) {
+private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
+                      selectedTeamIndex: Int, onSelectedTeamChange: (Int) -> Unit) {
+    val context = LocalContext.current
+    val exporter = remember { TeamPdfExporter() }
+    var includeScores by rememberSaveable { mutableStateOf(true) }
+    var includeSubstitutions by rememberSaveable { mutableStateOf(true) }
+    var includeDiscipline by rememberSaveable { mutableStateOf(true) }
+    var pendingExport by remember { mutableStateOf<PendingPdfExport?>(null) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
+    val team1 = vm.team1
+    val team2 = vm.team2
+    val selectedTeam = if (selectedTeamIndex == 1) { team1 } else { team2 }
+    val opponent = if (selectedTeamIndex == 1) { team2 } else { team1 }
+
+    val includedEventTypes =
+        buildSet {
+            if (includeScores) {
+                add(PdfEventType.SCORE)
+            }
+
+            if (includeSubstitutions) {
+                add(PdfEventType.SUBSTITUTION)
+            }
+
+            if (includeDiscipline) {
+                add(PdfEventType.DISCIPLINE)
+            }
+        }
+
+    val exportOptions = TeamPdfExportOptions(includedEventTypes = includedEventTypes)
+
+    val createPdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf"))
+    { uri ->
+        if (uri == null) {
+            pendingExport = null
+            return@rememberLauncherForActivityResult
+        }
+
+        val export = pendingExport ?: return@rememberLauncherForActivityResult
+
+        try {
+            val outputStream = context.contentResolver.openOutputStream(uri)
+                ?: throw IllegalStateException("Could not open the selected file.")
+
+            outputStream.use { stream ->
+                exporter.export(
+                    matchState = export.matchState,
+                    teamId = export.teamId,
+                    options = export.options,
+                    outputStream = stream
+                )
+            }
+
+            exportMessage = "PDF exported successfully."
+        } catch (exception: Exception) {
+            exportMessage = "Export failed: " + (exception.message ?: "Unknown error.")
+        } finally {
+            pendingExport = null
+        }
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
-        Text("Export Data (TBC)", style = MaterialTheme.typography.headlineMedium)
+        Text("Export Match Report", style = MaterialTheme.typography.headlineMedium)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Team", style = MaterialTheme.typography.titleMedium)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    RadioButton(
+                        selected = selectedTeamIndex == 1,
+                        onClick = {
+                            onSelectedTeamChange(1)
+                            exportMessage = null
+                        }
+                    )
+
+                    Text(team1.name.ifBlank { "Team ${team1.index}" })
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    RadioButton(
+                        selected = selectedTeamIndex == 2,
+                        onClick = {
+                            onSelectedTeamChange(2)
+                            exportMessage = null
+                        }
+                    )
+
+                    Text(team2.name.ifBlank { "Team ${team2.index}" })
+                }
+            }
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Include events", style = MaterialTheme.typography.titleMedium)
+
+            Row(verticalAlignment = Alignment.CenterVertically)
+            {
+                Checkbox(
+                    checked = includeScores,
+                    onCheckedChange = {
+                        includeScores = it
+                        exportMessage = null
+                    }
+                )
+
+                Text("Scores")
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically)
+            {
+                Checkbox(
+                    checked = includeSubstitutions,
+                    onCheckedChange = {
+                        includeSubstitutions = it
+                        exportMessage = null
+                    }
+                )
+
+                Text("Substitutions")
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically)
+            {
+                Checkbox(
+                    checked = includeDiscipline,
+                    onCheckedChange = {
+                        includeDiscipline = it
+                        exportMessage = null
+                    }
+                )
+
+                Text("Discipline")
+            }
+        }
+
+        Button(
+            enabled = exportOptions.hasSelectedEventTypes,
+            onClick = {
+                exportMessage = null
+                pendingExport = PendingPdfExport(
+                        matchState = vm.matchState,
+                        teamId = selectedTeam.id,
+                        options = exportOptions
+                    )
+
+                createPdfLauncher.launch(
+                    buildPdfFileName(
+                        selectedTeam = selectedTeam,
+                        opponent = opponent
+                    )
+                )
+            }
+        ) {
+            Text("Export PDF")
+        }
+
+        exportMessage?.let { Text(it) }
     }
+}
+
+private data class PendingPdfExport(
+    val matchState: MatchState,
+    val teamId: TeamId,
+    val options: TeamPdfExportOptions
+)
+
+private fun buildPdfFileName(selectedTeam: Team, opponent: Team): String {
+    val selectedTeamName = selectedTeam.name.ifBlank { "Team ${selectedTeam.index}" }
+    val opponentName = opponent.name.ifBlank { "Team ${opponent.index}" }
+    val rawName = "${selectedTeamName}_vs_" + "${opponentName}_" + "${selectedTeamName}_Report"
+
+    val safeName =
+        rawName.replace(Regex("[^\\p{L}\\p{N}._-]+"), "_").trim('_')
+
+    return "$safeName.pdf"
 }
 
 @Composable
