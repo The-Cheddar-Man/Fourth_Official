@@ -186,7 +186,7 @@ fun MatchScreen(
                 DisciplineType.YELLOW -> {
                     DisciplineReasonYellowDialogue(
                         onConfirm = { reason ->
-                            vm.recordDiscipline(
+                            val recorded = vm.recordDiscipline(
                                 state.teamId,
                                 state.playerId,
                                 state.type,
@@ -194,7 +194,8 @@ fun MatchScreen(
                                 state.eventTimeMs,
                                 state.halfIndex
                             )
-                            dismissDialogue()
+                            if(recorded)
+                                dismissDialogue()
                         },
                         onDismiss = dismissDialogue
                     )
@@ -203,7 +204,7 @@ fun MatchScreen(
                 DisciplineType.RED -> {
                     DisciplineReasonRedDialogue(
                         onConfirm = { reason ->
-                            vm.recordDiscipline(
+                            val recorded = vm.recordDiscipline(
                                 state.teamId,
                                 state.playerId,
                                 state.type,
@@ -211,7 +212,8 @@ fun MatchScreen(
                                 state.eventTimeMs,
                                 state.halfIndex
                             )
-                            dismissDialogue()
+                            if(recorded)
+                                dismissDialogue()
                         },
                         onDismiss = dismissDialogue
                     )
@@ -223,11 +225,7 @@ fun MatchScreen(
     if (showResetDialog) {
         StartNewMatchDialogue(
             onConfirm = {
-                vm.resetClock()
-                vm.resetScores()
-                vm.resetSubstitutions()
-                vm.resetDiscs()
-                vm.resetPlayerStates()
+                vm.startNewMatch()
 
                 uiState = MatchScreenUiState.None
                 showResetDialog = false

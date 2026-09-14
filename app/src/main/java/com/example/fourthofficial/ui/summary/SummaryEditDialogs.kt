@@ -37,6 +37,7 @@ fun EditScoreDialog(
     event: Score,
     players: List<Player>,
     initialTimeText: String,
+    minTimeMs: Long = 0L,
     maxTimeMs: Long?,
     errorMessage: String?,
     onSave: (playerId: PlayerId, type: ScoreType, timeMs: Long) -> Unit,
@@ -49,7 +50,8 @@ fun EditScoreDialog(
     var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
     val parsedTimeMs = parseMatchTime(timeText)
     val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
-    val timeIsValid = parsedTimeMs != null && !timeIsAfterCurrentMatch
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
     val selectedPlayer = players.find { it.id == selectedPlayerId }
 
     if (showDeleteConfirmation) {
@@ -108,6 +110,10 @@ fun EditScoreDialog(
                                 Text("Enter time as MM:SS")
                             }
 
+                            timeIsBeforeHalf -> {
+                                Text("Time cannot be earlier than the start of this half.")
+                            }
+
                             timeIsAfterCurrentMatch -> {
                                 Text("Time cannot be later than the current match clock.")
                             }
@@ -149,6 +155,7 @@ fun EditSubstitutionDialog(
     event: Substitution,
     players: List<Player>,
     initialTimeText: String,
+    minTimeMs: Long = 0L,
     maxTimeMs: Long?,
     errorMessage: String?,
     onSave: (playerOffId: PlayerId, playerOnId: PlayerId, type: SubstitutionType, timeMs: Long) -> Unit,
@@ -163,7 +170,8 @@ fun EditSubstitutionDialog(
     val parsedTimeMs = parseMatchTime(timeText)
     val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
     val playersAreDifferent = selectedPlayerOffId != selectedPlayerOnId
-    val timeIsValid = parsedTimeMs != null && !timeIsAfterCurrentMatch
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
     val canSave = timeIsValid && playersAreDifferent
     val selectedPlayerOff = players.find { it.id == selectedPlayerOffId }
     val selectedPlayerOn = players.find { it.id == selectedPlayerOnId }
@@ -231,6 +239,10 @@ fun EditSubstitutionDialog(
                                 Text("Enter time as MM:SS")
                             }
 
+                            timeIsBeforeHalf -> {
+                                Text("Time cannot be earlier than the start of this half.")
+                            }
+
                             timeIsAfterCurrentMatch -> {
                                 Text("Time cannot be later than the current match clock.")
                             }
@@ -281,6 +293,7 @@ fun EditDisciplineDialog(
     event: Discipline,
     players: List<Player>,
     initialTimeText: String,
+    minTimeMs: Long = 0L,
     maxTimeMs: Long?,
     errorMessage: String?,
     onSave: (playerId: PlayerId, type: DisciplineType, reason: DisciplineReason, timeMs: Long) -> Unit,
@@ -294,7 +307,8 @@ fun EditDisciplineDialog(
     var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
     val parsedTimeMs = parseMatchTime(timeText)
     val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
-    val timeIsValid = parsedTimeMs != null && !timeIsAfterCurrentMatch
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
     val selectedPlayer = players.find { it.id == selectedPlayerId }
     val sortedPlayers = players.sortedBy { it.number }
     val validReasons = disciplineReasonsFor(selectedType)
@@ -366,6 +380,11 @@ fun EditDisciplineDialog(
                             timeText.isNotBlank() && parsedTimeMs == null -> {
                                 Text("Enter time as MM:SS")
                             }
+
+                            timeIsBeforeHalf -> {
+                                Text("Time cannot be earlier than the start of this half.")
+                            }
+
                             timeIsAfterCurrentMatch -> {
                                 Text("Time cannot be later than the current match clock.")
                             }

@@ -20,20 +20,19 @@ import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchClock
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
-import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.match.PreparedSubstitutionBatch
-import com.example.fourthofficial.domain.rules.applyRedCard
-import com.example.fourthofficial.domain.rules.applyYellowCard
+import com.example.fourthofficial.domain.rules.EventEditResult
+import com.example.fourthofficial.domain.rules.MatchEventReplayResult
 import com.example.fourthofficial.domain.rules.calculateScore
 import com.example.fourthofficial.domain.rules.canReturn
 import com.example.fourthofficial.domain.rules.canSubstituteOff
 import com.example.fourthofficial.domain.rules.canSubstituteOn
 import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
 import com.example.fourthofficial.domain.rules.isMatchInPlay
-import com.example.fourthofficial.domain.rules.isSecondYellowCard
+import com.example.fourthofficial.domain.rules.replayMatchEvents
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.domain.team.Team
 import kotlinx.coroutines.Job
@@ -43,8 +42,6 @@ import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerR
 import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
 import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
-import com.example.fourthofficial.domain.rules.MatchEventReplayResult
-import com.example.fourthofficial.domain.rules.replayMatchEvents
 
 class MatchViewModel : ViewModel() {
 
@@ -279,14 +276,6 @@ class MatchViewModel : ViewModel() {
         return states[playerId]
     }
 
-    private fun updatePlayerStates(teamId: TeamId, states: Map<PlayerId, MatchPlayerState>) {
-        matchState = when (teamId) {
-            team1.id -> matchState.copy(team1 = matchState.team1.copy(playerStates = states))
-            team2.id -> matchState.copy(team2 = matchState.team2.copy(playerStates = states))
-            else -> matchState
-        }
-    }
-
     fun updateTeam1(updated: Team) {
         matchState = matchState.copy(
             team1 = matchState.team1.copy(
@@ -300,13 +289,6 @@ class MatchViewModel : ViewModel() {
             team2 = matchState.team2.copy(
                 team = updated
             )
-        )
-    }
-
-    fun resetPlayerStates() {
-        matchState = matchState.copy(
-            team1 = matchState.team1.copy(playerStates = defaultPlayerStates(team1)),
-            team2 = matchState.team2.copy(playerStates = defaultPlayerStates(team2))
         )
     }
     //endregion
@@ -349,15 +331,17 @@ class MatchViewModel : ViewModel() {
             )
         }
 
-        if (team.players.none { it.id == playerId }) { return EventEditResult.Failure(
-            "Selected player is not part of this team."
-        ) }
-        if (timeMs < 0L) { return EventEditResult.Failure(
-            "Time cannot be negative."
-        ) }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
-            "Time cannot be later than the current match clock."
-        ) }
+        if (team.players.none { it.id == playerId }) {
+            return EventEditResult.Failure("Selected player is not part of this team.")
+        }
+        if (timeMs < 0L) {
+            return EventEditResult.Failure("Time cannot be negative.")
+        }
+
+        val maxTimeMs = maxEditableEventTimeMs(existingScore.halfIndex)
+        if (maxTimeMs != null && timeMs > maxTimeMs) {
+            return EventEditResult.Failure("Time cannot be later than the current match clock.")
+        }
 
         val updatedScore = existingScore.copy(
             playerId = playerId,
@@ -380,10 +364,6 @@ class MatchViewModel : ViewModel() {
         val candidateEvents = matchState.events.filterNot { it.id == eventId }
         return commitEventEdit(candidateEvents)
     }
-
-    fun resetScores() {
-        matchState = matchState.copy(events = matchState.events.filterNot { it is Score })
-    }
     //endregion
 
     //==================
@@ -391,19 +371,6 @@ class MatchViewModel : ViewModel() {
     //==================
 
     //region Subs
-
-    private fun recordSubstitution(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId,
-                          reason: SubstitutionType, time: Long, halfIndex: Int) {
-        val substitution = Substitution(
-            timeMs = time,
-            teamId = teamId,
-            halfIndex = halfIndex,
-            playerOffId = playerOffId,
-            playerOnId = playerOnId,
-            type = reason
-        )
-        addEvent(substitution)
-    }
 
     fun startPreparedSubstitutionBatch(teamId: TeamId) {
         if (getPreparedSubstitutionBatch(teamId) != null) return
@@ -419,63 +386,28 @@ class MatchViewModel : ViewModel() {
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.isEmpty()) return
         if (batch.substitutions.any { it.playerOnId == null || it.type == null }) return
-
-        val teamStates = when (teamId) {
-            team1.id -> team1PlayerStates
-            team2.id -> team2PlayerStates
-            else -> return
-        }
-        var updatedStates = teamStates
-
-        for (substitution in batch.substitutions) {
-            val playerOnId = substitution.playerOnId ?: return
-            val playerOffState = updatedStates[substitution.playerOffId] ?: return
-            val playerOnState = updatedStates[playerOnId] ?: return
-            val canReturn = canReturn(
-                events = subEvents, teamId = teamId, playerId = playerOnId)
-
-            if (!canSubstituteOff(
-                    state = playerOffState,
-                    totalElapsedMs = clock.totalElapsedMs))
-                return
-
-            if (!canSubstituteOn(
-                    state = playerOnState,
-                    totalElapsedMs = clock.totalElapsedMs,
-                    canReturn = canReturn))
-                return
-
-            val position = playerOffState.fieldPos ?: return
-
-            updatedStates = updatedStates +
-                (substitution.playerOffId to playerOffState.copy(
-                    isOnField = false,
-                    fieldPos = null
-                )) +
-                (playerOnId to playerOnState.copy(
-                    isOnField = true,
-                    fieldPos = position
-                ))
-        }
-
         val timeMs = displayElapsedMs
         val halfIndex = currentHalf
-
-        updatePlayerStates(teamId, updatedStates)
+        val newEvents = mutableListOf<Substitution>()
 
         for (substitution in batch.substitutions) {
             val playerOnId = substitution.playerOnId ?: return
             val type = substitution.type ?: return
 
-            recordSubstitution(
-                teamId,
-                substitution.playerOffId,
-                playerOnId,
-                type,
-                timeMs,
-                halfIndex
+            newEvents += Substitution(
+                timeMs = timeMs,
+                teamId = teamId,
+                halfIndex = halfIndex,
+                playerOffId = substitution.playerOffId,
+                playerOnId = playerOnId,
+                type = type
             )
         }
+
+        val candidateEvents = matchState.events + newEvents
+        val result = commitEventHistory(candidateEvents)
+
+        if (result !is MatchEventReplayResult.Success) { return }
 
         matchState = matchState.copy(
             preparedSubstitutionBatches = matchState.preparedSubstitutionBatches - teamId)
@@ -643,19 +575,12 @@ class MatchViewModel : ViewModel() {
         matchState = matchState.copy(preparedSubstitutionBatches = reconciledBatches)
     }
 
-    fun resetSubstitutions() {
-        matchState = matchState.copy(
-            events = matchState.events.filterNot { it is Substitution },
-            preparedSubstitutionBatches = emptyMap()
-        )
-    }
-
     fun updateSubstitution(eventId: EventId, playerOffId: PlayerId,
-                           playerOnId: PlayerId, type: SubstitutionType, timeMs: Long): EventEditResult
+                           playerOnId: PlayerId, type: SubstitutionType,
+                           timeMs: Long): EventEditResult
     {
-        val existingSubstitution = subEvents.find { event -> event.id == eventId } ?: return EventEditResult.Failure(
-            "Substitution event could not be found."
-        )
+        val existingSubstitution = subEvents.find { event -> event.id == eventId } ?:
+        return EventEditResult.Failure("Substitution event could not be found.")
 
         val team = when (existingSubstitution.teamId) {
                 team1.id -> team1
@@ -679,15 +604,16 @@ class MatchViewModel : ViewModel() {
             )
         }
 
-        if (playerOffId == playerOnId) { return EventEditResult.Failure(
-            "A player cannot substitute for themselves."
-        ) }
-        if (timeMs < 0L) { return EventEditResult.Failure(
-            "Time cannot be negative."
-        ) }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
-            "Time cannot be later than the current match clock."
-        ) }
+        if (playerOffId == playerOnId) {
+            return EventEditResult.Failure("A player cannot substitute for themselves.")
+        }
+        if (timeMs < 0L) {
+            return EventEditResult.Failure("Time cannot be negative.")
+        }
+        val maxTimeMs = maxEditableEventTimeMs(existingSubstitution.halfIndex)
+        if ( maxTimeMs != null && timeMs > maxTimeMs) {
+            return EventEditResult.Failure("Time cannot be later than the current match clock.")
+        }
 
         val updatedSubstitution = existingSubstitution.copy(
             playerOffId = playerOffId,
@@ -724,36 +650,24 @@ class MatchViewModel : ViewModel() {
 
     //region Disciplines
     fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType,
-                         reason: DisciplineReason, eventTimeMs: Long, halfIndex: Int) {
-        val playerState = getPlayerState(teamId, playerId) ?: return
-        if (!canActOnPlayer(playerState)) return
-        if (!isDisciplineReasonValid(type, reason)) return
+                         reason: DisciplineReason, eventTimeMs: Long, halfIndex: Int) : Boolean {
+        val playerState = getPlayerState(teamId, playerId) ?: return false
+        if (!canActOnPlayer(playerState)) return false
+        if (!isDisciplineReasonValid(type, reason)) return false
 
-        val hasPreviousYellow = discEvents.any {
-            it.teamId == teamId && it.playerId == playerId && it.type == DisciplineType.YELLOW
-        }
-        val isSecondYellow = isSecondYellowCard(type = type, hasPreviousYellow = hasPreviousYellow)
-
-        val discs = Discipline(
+        val discipline = Discipline(
             timeMs = eventTimeMs,
             teamId = teamId,
             halfIndex = halfIndex,
             playerId = playerId,
             type = type,
             reason = reason,
-            isSecondYellow = isSecondYellow
+            isSecondYellow = false
         )
-        addEvent(discs)
 
-        val eventPlayingTimeMs = clock.totalElapsedMs - (displayElapsedMs - eventTimeMs)
+        val candidateEvents = matchState.events + discipline
 
-        when {
-            type == DisciplineType.RED -> applyRed(teamId, playerId)
-            isSecondYellow -> applyRed(teamId, playerId)
-            else -> applyYellow(teamId, playerId, eventPlayingTimeMs)
-        }
-
-        reconcilePreparedSubstitutionBatches()
+        return commitEventHistory(candidateEvents) is MatchEventReplayResult.Success
     }
 
     fun updateDiscipline(eventId: EventId, playerId: PlayerId,
@@ -770,18 +684,20 @@ class MatchViewModel : ViewModel() {
                 )
             }
 
-        if (team.players.none { it.id == playerId }) { return EventEditResult.Failure(
-            "Selected player is not part of this team."
-        ) }
-        if (!isDisciplineReasonValid(type = type, reason = reason)) { return EventEditResult.Failure(
-            "This reason is not valid for the selected card type."
-        ) }
-        if (timeMs < 0L) { return EventEditResult.Failure(
-            "Time cannot be negative."
-        ) }
-        if (phase != MatchPhase.FINISHED && timeMs > displayElapsedMs) { return EventEditResult.Failure(
-            "Time cannot be later than the current match clock."
-        ) }
+        if (team.players.none { it.id == playerId }) {
+            return EventEditResult.Failure("Selected player is not part of this team.")
+        }
+        if (!isDisciplineReasonValid(type = type, reason = reason)) {
+            return EventEditResult.Failure("This reason is not valid for the selected card type.")
+        }
+        if (timeMs < 0L) {
+            return EventEditResult.Failure("Time cannot be negative.")
+        }
+
+        val maxTimeMs = maxEditableEventTimeMs(existingDiscipline.halfIndex)
+        if (maxTimeMs != null && timeMs > maxTimeMs) {
+            return EventEditResult.Failure("Time cannot be later than the current match clock.")
+        }
 
         val updatedDiscipline = existingDiscipline.copy(
                 playerId = playerId,
@@ -811,31 +727,6 @@ class MatchViewModel : ViewModel() {
         return commitEventEdit(candidateEvents)
     }
 
-    private fun applyYellow(teamId: TeamId, playerId: PlayerId, eventPlayingTimeMs: Long) {
-        val teamStates = when (teamId) {
-            team1.id -> team1PlayerStates
-            team2.id -> team2PlayerStates
-            else -> return
-        }
-
-        val state = teamStates[playerId] ?: return
-        val updatedState = applyYellowCard(state = state, totalElapsedMs = eventPlayingTimeMs)
-
-        updatePlayerStates(teamId, teamStates + (playerId to updatedState))
-    }
-
-    private fun applyRed(teamId: TeamId, playerId: PlayerId) {
-        val teamStates = when (teamId) {
-            team1.id -> team1PlayerStates
-            team2.id -> team2PlayerStates
-            else -> return
-        }
-
-        val state = teamStates[playerId] ?: return
-        val updatedState = applyRedCard(state)
-        updatePlayerStates(teamId, teamStates + (playerId to updatedState))
-    }
-
     fun isYellowActive(state: MatchPlayerState): Boolean {
         return isYellowActiveRule(
             state = state,
@@ -845,28 +736,6 @@ class MatchViewModel : ViewModel() {
 
     fun yellowRemainingMs(state: MatchPlayerState): Long {
         return yellowRemainingMsRule(state, clock.totalElapsedMs)
-    }
-
-    private fun clearAllCards() {
-        matchState = matchState.copy(
-            team1 = matchState.team1.copy(
-                playerStates = team1PlayerStates.mapValues { (_, state) ->
-                    state.copy(
-                        yellowUntilPlayingMs = null,
-                        isRedCarded = false
-                    ) }),
-            team2 = matchState.team2.copy(
-                playerStates = team2PlayerStates.mapValues { (_, state) ->
-                    state.copy(
-                        yellowUntilPlayingMs = null,
-                        isRedCarded = false
-                    ) })
-        )
-    }
-
-    fun resetDiscs() {
-        matchState = matchState.copy(events = matchState.events.filterNot { it is Discipline })
-        clearAllCards()
     }
     //endregion
 
@@ -973,7 +842,7 @@ class MatchViewModel : ViewModel() {
         )
     }
 
-    fun resetClock() {
+    fun startNewMatch() {
         tickerJob?.cancel()
         tickerJob = null
 
@@ -981,9 +850,9 @@ class MatchViewModel : ViewModel() {
         baseHalfElapsedMs = 0L
         baseTotalElapsedMs = 0L
 
-        matchState = matchState.copy(
-            phase = MatchPhase.NOT_STARTED,
-            clock = MatchClock()
+        matchState = MatchState(
+            team1 = defaultMatchTeamState(team1),
+            team2 = defaultMatchTeamState(team2)
         )
     }
 
@@ -996,6 +865,33 @@ class MatchViewModel : ViewModel() {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return "%02d:%02d".format(minutes, seconds)
+    }
+
+    fun maxEditableEventTimeMs(halfIndex: Int): Long? {
+        if (phase == MatchPhase.FINISHED) { return null }
+        return when (halfIndex) {
+            1 -> {
+                when (phase) {
+                    MatchPhase.NOT_STARTED -> 0L
+                    MatchPhase.FIRST_HALF -> displayElapsedMs
+                    MatchPhase.HALF_TIME,
+                    MatchPhase.SECOND_HALF -> completedFirstHalfPlayingMsForReplay ?: halfDurationMs
+                    MatchPhase.FINISHED -> null
+                }
+            }
+
+            2 -> {
+                when (phase) {
+                    MatchPhase.SECOND_HALF -> displayElapsedMs
+                    MatchPhase.NOT_STARTED,
+                    MatchPhase.FIRST_HALF,
+                    MatchPhase.HALF_TIME -> 0L
+                    MatchPhase.FINISHED -> null
+                }
+            }
+
+            else -> 0L
+        }
     }
 
     val displayElapsedMs: Long

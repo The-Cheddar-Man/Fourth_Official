@@ -29,7 +29,6 @@ import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.Score
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.id.PlayerId
-import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.ui.common.DataTable
@@ -140,9 +139,8 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                 event = scoreToEdit,
                 players = team.players,
                 initialTimeText = vm.formatClock(scoreToEdit.timeMs, false),
-                maxTimeMs =
-                    if (vm.phase == MatchPhase.FINISHED) { null }
-                    else { vm.displayElapsedMs },
+                minTimeMs = if (scoreToEdit.halfIndex == 2) { vm.halfDurationMs } else { 0L },
+                maxTimeMs = vm.maxEditableEventTimeMs(scoreToEdit.halfIndex),
                 errorMessage = editError,
                 onSave = { playerId, scoreType, timeMs ->
                     when (val result = vm.updateScore(
@@ -231,12 +229,8 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                 event = substitutionToEdit,
                 players = team.players,
                 initialTimeText = vm.formatClock(substitutionToEdit.timeMs, false),
-                maxTimeMs =
-                    if (vm.phase == MatchPhase.FINISHED) {
-                        null
-                    } else {
-                        vm.displayElapsedMs
-                    },
+                minTimeMs = if (substitutionToEdit.halfIndex == 2) { vm.halfDurationMs } else { 0L },
+                maxTimeMs = vm.maxEditableEventTimeMs(substitutionToEdit.halfIndex),
                 errorMessage = editError,
                 onSave = { playerOffId, playerOnId, type, timeMs ->
                     when (val result = vm.updateSubstitution(
@@ -327,7 +321,8 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
             event = disciplineToEdit,
             players = team.players,
             initialTimeText = vm.formatClock(disciplineToEdit.timeMs, false),
-            maxTimeMs = if (vm.phase == MatchPhase.FINISHED) { null } else { vm.displayElapsedMs },
+            minTimeMs = if (disciplineToEdit.halfIndex == 2) { vm.halfDurationMs } else { 0L },
+            maxTimeMs = vm.maxEditableEventTimeMs(disciplineToEdit.halfIndex),
             errorMessage = editError,
             onSave = { playerId, type, reason, timeMs ->
                 when (val result = vm.updateDiscipline(
