@@ -56,6 +56,7 @@ fun EditScoreDialog(
 
     if (showDeleteConfirmation) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete Score") },
             text = {
@@ -77,6 +78,7 @@ fun EditScoreDialog(
     }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onCancel,
         title = { Text("Edit Score") },
         text = {
@@ -179,6 +181,7 @@ fun EditSubstitutionDialog(
 
     if (showDeleteConfirmation) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete Substitution") },
             text = {
@@ -198,6 +201,7 @@ fun EditSubstitutionDialog(
     }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onCancel,
         title = { Text("Edit Substitution") },
         text = {
@@ -315,6 +319,7 @@ fun EditDisciplineDialog(
 
     if (showDeleteConfirmation) {
         AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete Discipline") },
             text = {
@@ -333,6 +338,7 @@ fun EditDisciplineDialog(
     }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onCancel,
         title = { Text("Edit Discipline") },
         text = {

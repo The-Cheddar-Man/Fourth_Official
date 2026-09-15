@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,23 +33,52 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.domain.team.Team
+import com.example.fourthofficial.ui.match.components.StartNewMatchDialogue
+import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
 fun MatchSetupScreen(modifier: Modifier = Modifier.Companion, vm: MatchViewModel,
-                     onTeam1Change: (Team) -> Unit, onTeam2Change: (Team) -> Unit) {
-    Row(modifier = modifier.fillMaxSize()) {
+                     onTeam1Change: (Team) -> Unit, onTeam2Change: (Team) -> Unit)
+{
+    var showResetDialog by remember { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxSize())
+    {
+        Row(modifier = Modifier.weight(1f).fillMaxWidth())
+        {
+            TeamColumn(
+                team = vm.team1,
+                onSave = onTeam1Change,
+                modifier = Modifier.weight(1f)
+            )
 
-        TeamColumn(
-            team = vm.team1,
-            onSave = onTeam1Change,
-            modifier = Modifier.weight(1f)
-        )
+            TeamColumn(
+                team = vm.team2,
+                onSave = onTeam2Change,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        TeamColumn(
-            team = vm.team2,
-            onSave = onTeam2Change,
-            modifier = Modifier.weight(1f)
+        Button(
+            onClick = { showResetDialog = true },
+            shape = AppButtonShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
+            ),
+            modifier = Modifier.fillMaxWidth().padding(8.dp)
+        ) { Text("Start New Match") }
+    }
+
+    if (showResetDialog) {
+        StartNewMatchDialogue(
+            onConfirm = {
+                vm.startNewMatch()
+                showResetDialog = false
+            },
+            onDismiss = {
+                showResetDialog = false
+            }
         )
     }
 }

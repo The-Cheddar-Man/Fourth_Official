@@ -1,30 +1,33 @@
 package com.example.fourthofficial.ui.match.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.team.Team
+import com.example.fourthofficial.ui.theme.OnRedCard
+import com.example.fourthofficial.ui.theme.OnYellowCard
+import com.example.fourthofficial.ui.theme.RedCard
+import com.example.fourthofficial.ui.theme.YellowCard
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
-
 
 @Composable
 private fun playerTileColor(yellowActive: Boolean, redActive: Boolean) = when {
-    redActive -> Color(0xFFE74751)
-    yellowActive -> Color(0xFFFFB834)
+    redActive -> RedCard
+    yellowActive -> YellowCard
     else -> MaterialTheme.colorScheme.surface
 }
 
@@ -34,45 +37,55 @@ fun TeamColumn(
     playerStates: Map<PlayerId, MatchPlayerState>, onPlayerTapped: (PlayerId) -> Unit,
     onPlayerLongPressed: (PlayerId) -> Unit, onPreparedSubstitutionsTapped: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(5.dp)
-    )
-    {
-        val onField = team.players.mapNotNull { player ->
-            playerStates[player.id]?.let { state -> player to state }
-        }.filter { (_, state) ->
-            state.isOnField
-        }.sortedBy { (_, state) ->
-            state.fieldPos ?: 999
-        }
+    val onField = team.players
+        .mapNotNull { player -> playerStates[player.id]?.let { state -> player to state } }
+        .filter { (_, state) -> state.isOnField }
+        .sortedBy { (_, state) -> state.fieldPos ?: 999 }
 
-        LazyColumn {
-            item {
-                val preparedSubstitutionCount =
-                    vm.getPreparedSubstitutionBatch(team.id)?.substitutions?.size ?: 0
+    val preparedSubstitutionCount =
+        vm.getPreparedSubstitutionBatch(team.id)?.substitutions?.size ?: 0
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = team.name.ifBlank { "Team ${team.index}" },
-                        textAlign = TextAlign.Center
-                    )
-
-                    if (preparedSubstitutionCount > 0) {
-                        OutlinedButton(onClick = onPreparedSubstitutionsTapped) {
-                            Text("Substitutions ($preparedSubstitutionCount)")
-                        }
+    TeamPanel(
+        title = team.name.ifBlank { "Team ${team.index}" },
+        modifier = modifier.padding(4.dp),
+        headerAction =
+            if (preparedSubstitutionCount > 0) {
+                {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.clickable(onClick = onPreparedSubstitutionsTapped)
+                    ) {
+                        Text(
+                            text = "SUBS $preparedSubstitutionCount",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
+            } else {
+                null
             }
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp)
+        ) {
             items(onField.size) { i ->
                 val (player, state) = onField[i]
                 val locked = !vm.canActOnPlayer(state)
+                val tileContentColor = when {
+                    state.isRedCarded -> OnRedCard
+                    vm.isYellowActive(state) -> OnYellowCard
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+
                 Surface(
-                    color = playerTileColor(vm.isYellowActive(state), state.isRedCarded),
+                    color = playerTileColor(
+                        vm.isYellowActive(state),
+                        state.isRedCarded),
+                    contentColor = tileContentColor,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -81,31 +94,28 @@ fun TeamColumn(
                             if (!locked) {
                                 Modifier.combinedClickable(
                                     onClick = { onPlayerTapped(player.id) },
-                                    onLongClick = { onPlayerLongPressed(player.id) })
+                                    onLongClick = { onPlayerLongPressed(player.id) }
+                                )
                             } else {
                                 Modifier
                             }
                         )
-                )
-                {
-                    Column(
-                        modifier = Modifier.padding(
-                            horizontal = 8.dp,
-                            vertical = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${player.number}. ${player.name}",
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    )
-                    {
-                        Text("${player.number}. ${player.name}")
 
-                        if (vm.isYellowActive(state)) {
-                            Text(
-                                "Yellow: ${
-                                    vm.formatClock(vm.yellowRemainingMs(state), true)
-                                }"
-                            )
-                        }
-                        if (state.isRedCarded) {
-                            Text("Red")
+                        when {
+                            state.isRedCarded -> { Text(text = "RED", fontWeight = FontWeight.Bold) }
+                            vm.isYellowActive(state) -> { Text(text = vm.formatClock(vm.yellowRemainingMs(state), true), fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

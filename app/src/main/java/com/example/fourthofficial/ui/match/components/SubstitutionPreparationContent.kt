@@ -1,5 +1,7 @@
 package com.example.fourthofficial.ui.match.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,12 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,13 +24,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
+import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.ui.match.SubstitutionPreparationUiState
+import com.example.fourthofficial.ui.theme.OnRedCard
+import com.example.fourthofficial.ui.theme.OnYellowCard
+import com.example.fourthofficial.ui.theme.RedCard
+import com.example.fourthofficial.ui.theme.SubstitutionPairColors
+import com.example.fourthofficial.ui.theme.YellowCard
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
@@ -48,17 +58,12 @@ fun SubstitutionPreparationContent(
     var reasonPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(8.dp),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         when (preparationState) {
             SubstitutionPreparationUiState.SelectPlayers -> {
-                Text(
-                    text = "$teamName — Prepare Substitutions",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
                 SubstitutionPlayerSelection(
                     vm = vm,
                     teamId = teamId,
@@ -66,7 +71,7 @@ fun SubstitutionPreparationContent(
                 )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(onClick = onDiscard, modifier = Modifier.weight(1f))
@@ -206,6 +211,7 @@ fun SubstitutionPreparationContent(
             }
             else {
                 AlertDialog(
+                    containerColor = MaterialTheme.colorScheme.surface,
                     onDismissRequest = { replacementPickerFor = null },
                     title = { Text("Substitution")},
                     text = { Text("No eligible replacement players are available.") },
@@ -239,29 +245,37 @@ private fun SubstitutionPlayerSelection(
     }
 
     val batch = vm.getPreparedSubstitutionBatch(teamId) ?: return
-
     val selectedPlayerOffIds = batch.substitutions.map { it.playerOffId }.toSet()
-
+    val selectedPlayerOnIds = batch.substitutions.mapNotNull { it.playerOnId }.toSet()
     val eligiblePlayerOffIds = vm.eligiblePlayersOff(teamId).map { it.id }.toSet()
-
-    val onFieldPlayers = team.players.mapNotNull {
-        player -> playerStates[player.id]?.let { state -> player to state } }
+    val onFieldPlayers = team.players
+        .mapNotNull { player -> playerStates[player.id]?.let { state -> player to state } }
         .filter { (_, state) -> state.isOnField }
         .sortedBy { (_, state) -> state.fieldPos ?: Int.MAX_VALUE }
-        .map { (player, _) -> player }
 
     val benchPlayers = team.players
-            .filter { player -> playerStates[player.id]?.isOnField == false }
-            .sortedBy { player -> player.number }
+        .mapNotNull { player -> playerStates[player.id]?.let { state -> player to state } }
+        .filter { (_, state) -> !state.isOnField }
+        .sortedBy { (player, _) -> player.number }
+
+    val pairColorsByPlayerId = buildMap<PlayerId, Color> {
+        batch.substitutions.forEachIndexed { index, substitution ->
+                val playerOnId = substitution.playerOnId ?: return@forEachIndexed
+                val color = SubstitutionPairColors[index % SubstitutionPairColors.size]
+
+                put(substitution.playerOffId, color)
+                put(playerOnId, color)
+        }
+    }
 
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier
     ) {
         SubstitutionOnFieldColumn(
             players = onFieldPlayers,
             selectedPlayerOffIds = selectedPlayerOffIds,
             eligiblePlayerOffIds = eligiblePlayerOffIds,
+            pairColorsByPlayerId = pairColorsByPlayerId,
             onSelectionChanged = { player, selected ->
                 if (selected) {
                     vm.addPreparedSubstitution(teamId = teamId, playerOffId = player.id)
@@ -269,83 +283,157 @@ private fun SubstitutionPlayerSelection(
                     vm.removePreparedSubstitution(teamId = teamId, playerOffId = player.id)
                 }
             },
-            modifier = Modifier.weight(1f) .fillMaxHeight()
+            vm = vm,
+            modifier = Modifier.weight(1f).fillMaxHeight().padding(4.dp)
         )
 
         SubstitutionBenchColumn(
             players = benchPlayers,
-            modifier = Modifier.weight(1f).fillMaxHeight()
+            selectedPlayerOnIds = selectedPlayerOnIds,
+            pairColorsByPlayerId = pairColorsByPlayerId,
+            vm = vm,
+            modifier = Modifier.weight(1f).fillMaxHeight().padding(4.dp)
         )
     }
 }
 
 @Composable
 private fun SubstitutionOnFieldColumn(
-    players: List<Player>,
+    players: List<Pair<Player, MatchPlayerState>>,
     selectedPlayerOffIds: Set<PlayerId>,
     eligiblePlayerOffIds: Set<PlayerId>,
+    pairColorsByPlayerId: Map<PlayerId, Color>,
     onSelectionChanged: (Player, Boolean) -> Unit,
+    vm: MatchViewModel,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-    ) {
-        Text(
-            text = "On Field",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(items = players, key = { player -> player.id.value })
-            { player ->
+    TeamPanel(title = "ON FIELD", modifier = modifier)
+    {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp)
+        ) {
+            items(
+                items = players,
+                key = { (player, _) -> player.id.value }
+            )
+            { (player, state) ->
                 val selected = player.id in selectedPlayerOffIds
                 val canSelect = selected || player.id in eligiblePlayerOffIds
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = selected,
-                            enabled = canSelect,
-                            role = Role.Checkbox,
-                            onValueChange = { checked -> onSelectionChanged(player, checked) }
-                        ).padding(horizontal = 4.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = selected,
-                        onCheckedChange = null,
-                        enabled = canSelect
-                    )
-
-                    Text(
-                        text = "${player.number}. " + player.name.ifBlank { "(Unnamed)" },
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
+                SubstitutionPlayerTile(
+                    player = player,
+                    state = state,
+                    vm = vm,
+                    selected = selected,
+                    pairColor = pairColorsByPlayerId[player.id],
+                    enabled = canSelect,
+                    onClick = { onSelectionChanged(player, !selected) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SubstitutionBenchColumn(players: List<Player>, modifier: Modifier = Modifier) {
-    Column(
+private fun SubstitutionBenchColumn(
+    players: List<Pair<Player, MatchPlayerState>>,
+    selectedPlayerOnIds: Set<PlayerId>,
+    pairColorsByPlayerId: Map<PlayerId, Color>,
+    vm: MatchViewModel,
+    modifier: Modifier = Modifier
+) {
+    TeamPanel(
+        title = "BENCH",
         modifier = modifier
     ) {
-        Text(
-            text = "Bench",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(items = players, key = { player -> player.id.value })
-            { player ->
-                Text(text = "${player.number}. " + player.name.ifBlank { "(Unnamed)" },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp)
+        ) {
+            items(
+                items = players,
+                key = { (player, _) -> player.id.value }
+            )
+            { (player, state) ->
+                SubstitutionPlayerTile(
+                    player = player,
+                    state = state,
+                    vm = vm,
+                    selected = player.id in selectedPlayerOnIds,
+                    pairColor = pairColorsByPlayerId[player.id],
+                    enabled = true,
+                    onClick = null
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubstitutionPlayerTile(
+    player: Player,
+    state: MatchPlayerState,
+    vm: MatchViewModel,
+    selected: Boolean,
+    pairColor: Color?,
+    enabled: Boolean,
+    onClick: (() -> Unit)?
+) {
+    val yellowActive = vm.isYellowActive(state)
+    val backgroundColor =
+        when {
+            state.isRedCarded -> RedCard
+            yellowActive -> YellowCard
+            selected && pairColor == null -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surface
+        }
+
+    val contentColor =
+        when {
+            state.isRedCarded -> OnRedCard
+            yellowActive -> OnYellowCard
+            selected && pairColor == null -> MaterialTheme.colorScheme.onPrimaryContainer
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+
+    val borderColor =
+        when {
+            pairColor != null -> pairColor
+            selected -> MaterialTheme.colorScheme.primary
+            else -> null
+        }
+
+    Surface(
+        color = backgroundColor,
+        contentColor = contentColor,
+        border = borderColor?.let { BorderStroke(2.dp, it) },
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .alpha(if (enabled) { 1f } else { 0.45f })
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(enabled = enabled, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${player.number}. ${player.name}",
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            when {
+                state.isRedCarded -> { Text(text = "RED", fontWeight = FontWeight.Bold) }
+                yellowActive -> { Text(text = vm.formatClock(vm.yellowRemainingMs(state), true), fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

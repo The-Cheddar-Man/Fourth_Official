@@ -203,6 +203,7 @@ fun StartNewMatchDialogue(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("Start New Match") },
         text = {
@@ -225,6 +226,7 @@ fun FinishHalfDialogue(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(if (finishingMatch) "End Match" else "Log Half") },
         text = { Text(

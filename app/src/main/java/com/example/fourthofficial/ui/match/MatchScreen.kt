@@ -20,7 +20,6 @@ import com.example.fourthofficial.ui.match.components.FinishHalfDialogue
 import com.example.fourthofficial.ui.match.components.MatchContent
 import com.example.fourthofficial.ui.match.components.MatchTeamColumns
 import com.example.fourthofficial.ui.match.components.ScoreDialogue
-import com.example.fourthofficial.ui.match.components.StartNewMatchDialogue
 import com.example.fourthofficial.ui.match.components.SubstitutionPreparationContent
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
@@ -32,7 +31,6 @@ fun MatchScreen(
     //region vars and vals
     var uiState by remember { mutableStateOf<MatchScreenUiState>(MatchScreenUiState.None) }
     val dismissDialogue = { uiState = MatchScreenUiState.None }
-    var showResetDialog by remember { mutableStateOf(false) }
     var showLogHalfDialog by remember { mutableStateOf(false) }
 
     val selectedTeam = { teamId: TeamId -> when(teamId){
@@ -53,7 +51,6 @@ fun MatchScreen(
     MatchContent(
         modifier = modifier,
         vm = vm,
-        onStartNewMatchRequested = { showResetDialog = true },
         onFinishHalfRequested = { showLogHalfDialog = true }
     )
     {
@@ -220,20 +217,6 @@ fun MatchScreen(
                 }
             }
         }
-    }
-
-    if (showResetDialog) {
-        StartNewMatchDialogue(
-            onConfirm = {
-                vm.startNewMatch()
-
-                uiState = MatchScreenUiState.None
-                showResetDialog = false
-            },
-            onDismiss = {
-                showResetDialog = false
-            }
-        )
     }
 
     if (showLogHalfDialog) {
