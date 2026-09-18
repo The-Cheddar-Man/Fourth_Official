@@ -413,6 +413,41 @@ class MatchViewModel : ViewModel() {
             preparedSubstitutionBatches = matchState.preparedSubstitutionBatches - teamId)
     }
 
+    fun applyPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId): EventEditResult {
+        if (!isMatchInPlay(phase, clock)) {
+            return EventEditResult.Failure("The match must be in play to submit a substitution.")
+        }
+
+        val batch = getPreparedSubstitutionBatch(teamId) ?:
+        return EventEditResult.Failure("Prepared substitutions could not be found.")
+
+        val preparedSubstitution = batch.substitutions.find { it.playerOffId == playerOffId } ?:
+            return EventEditResult.Failure("Prepared substitution could not be found.")
+
+        val playerOnId = preparedSubstitution.playerOnId ?:
+        return EventEditResult.Failure("Choose a replacement player first.")
+
+        val type = preparedSubstitution.type ?:
+        return EventEditResult.Failure("Choose a substitution reason first.")
+
+        val substitution =
+            Substitution(
+                timeMs = displayElapsedMs,
+                teamId = teamId,
+                halfIndex = currentHalf,
+                playerOffId = playerOffId,
+                playerOnId = playerOnId,
+                type = type
+            )
+
+        return when (
+            val result = commitEventHistory(matchState.events + substitution)
+        ) {
+            is MatchEventReplayResult.Success -> EventEditResult.Success
+            is MatchEventReplayResult.Failure -> EventEditResult.Failure(result.message)
+        }
+    }
+
     fun addPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId) {
         if (!isMatchInPlay(phase, clock)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return

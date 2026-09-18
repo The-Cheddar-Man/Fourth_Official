@@ -1,8 +1,10 @@
 package com.example.fourthofficial.ui.match.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,16 +18,21 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,14 +40,18 @@ import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
+import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.ui.match.SubstitutionPreparationUiState
+import com.example.fourthofficial.ui.theme.DestructiveRed
 import com.example.fourthofficial.ui.theme.OnRedCard
 import com.example.fourthofficial.ui.theme.OnYellowCard
 import com.example.fourthofficial.ui.theme.RedCard
 import com.example.fourthofficial.ui.theme.SubstitutionPairColors
+import com.example.fourthofficial.ui.theme.SuccessGreen
 import com.example.fourthofficial.ui.theme.YellowCard
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun SubstitutionPreparationContent(
@@ -56,6 +67,7 @@ fun SubstitutionPreparationContent(
     val substitutionCount = batch.substitutions.size
     var replacementPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
     var reasonPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
+    var swipeErrorMessage by remember(teamId) { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -110,12 +122,46 @@ fun SubstitutionPreparationContent(
                     style = MaterialTheme.typography.titleMedium
                 )
 
+                swipeErrorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                }
+
                 SubstitutionAssignmentList(
                     vm = vm,
                     teamId = teamId,
                     substitutions = batch.substitutions,
                     onChooseReplacement = { playerOffId -> replacementPickerFor = playerOffId },
                     onChooseReason = { playerOffId -> reasonPickerFor = playerOffId },
+                    onCancelSubstitution = { playerOffId ->
+                        swipeErrorMessage = null
+                        vm.removePreparedSubstitution(teamId = teamId, playerOffId = playerOffId)
+                        if (vm.getPreparedSubstitutions(teamId).isEmpty()) { onReturnToMatch() }
+                    },
+
+                    onSubmitSubstitution = { playerOffId ->
+                        when (val result =
+                            vm.applyPreparedSubstitution(teamId = teamId, playerOffId = playerOffId)
+                        ) {
+                            EventEditResult.Success -> {
+                                swipeErrorMessage = null
+                                if (vm.getPreparedSubstitutions(teamId).isEmpty())
+                                {
+                                    onReturnToMatch()
+                                }
+                                true
+                            }
+
+                            is EventEditResult.Failure -> {
+                                swipeErrorMessage = result.message
+                                false
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 )
 
@@ -258,7 +304,7 @@ private fun SubstitutionPlayerSelection(
         .filter { (_, state) -> !state.isOnField }
         .sortedBy { (player, _) -> player.number }
 
-    val pairColorsByPlayerId = buildMap<PlayerId, Color> {
+    val pairColorsByPlayerId = buildMap {
         batch.substitutions.forEachIndexed { index, substitution ->
                 val playerOnId = substitution.playerOnId ?: return@forEachIndexed
                 val color = SubstitutionPairColors[index % SubstitutionPairColors.size]
@@ -446,6 +492,8 @@ private fun SubstitutionAssignmentList(
     substitutions: List<PreparedSubstitution>,
     onChooseReplacement: (PlayerId) -> Unit,
     onChooseReason: (PlayerId) -> Unit,
+    onCancelSubstitution: (PlayerId) -> Unit,
+    onSubmitSubstitution: (PlayerId) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val team = when (teamId) {
@@ -475,24 +523,107 @@ private fun SubstitutionAssignmentList(
         ) { substitution ->
             val playerOff = playersById[substitution.playerOffId]
             val playerOn = substitution.playerOnId?.let { playerOnId -> playersById[playerOnId] }
+            val assignmentComplete = substitution.playerOnId != null && substitution.type != null
 
-            SubstitutionAssignmentRow(
-                playerOffLabel =
-                    playerOff?.let { player ->
-                        "${player.number}. " +
-                                player.name.ifBlank { "(Unnamed)" } } ?: "Unknown player",
+            SwipeableSubstitutionAssignmentRow(
+                canSubmit = assignmentComplete,
+                onCancel = { onCancelSubstitution(substitution.playerOffId) },
+                onSubmit = { onSubmitSubstitution(substitution.playerOffId) }
+            ) {
+                SubstitutionAssignmentRow(
+                    playerOffLabel =
+                        playerOff?.let { player ->
+                            "${player.number}. " +
+                                    player.name.ifBlank { "(Unnamed)" } } ?: "Unknown player",
 
-                playerOnLabel =
-                    playerOn?.let { player ->
-                        "${player.number}. " +
-                                player.name.ifBlank { "(Unnamed)" }
-                    },
+                    playerOnLabel =
+                        playerOn?.let { player ->
+                            "${player.number}. " + player.name.ifBlank { "(Unnamed)" }
+                        },
 
-                reasonLabel = substitution.type?.label,
-                onChooseReplacement = { onChooseReplacement(substitution.playerOffId) },
-                onChooseReason = { onChooseReason(substitution.playerOffId) }
-            )
+                    reasonLabel = substitution.type?.label,
+                    onChooseReplacement = { onChooseReplacement(substitution.playerOffId) },
+                    onChooseReason = { onChooseReason(substitution.playerOffId) }
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun SwipeableSubstitutionAssignmentRow(
+    canSubmit: Boolean,
+    onCancel: () -> Unit,
+    onSubmit: () -> Boolean,
+    content: @Composable () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = canSubmit,
+        enableDismissFromEndToStart = true,
+        onDismiss = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    val success = onSubmit()
+                    if (!success) {
+                        scope.launch { dismissState.reset() }
+                    }
+                }
+                SwipeToDismissBoxValue.EndToStart -> { onCancel() }
+                SwipeToDismissBoxValue.Settled -> Unit
+            }
+        },
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val targetColor =
+                when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> SuccessGreen
+                    SwipeToDismissBoxValue.EndToStart -> DestructiveRed
+                    SwipeToDismissBoxValue.Settled -> MaterialTheme.colorScheme.surface
+                }
+
+            val backgroundColor =
+                lerp(
+                    MaterialTheme.colorScheme.surface,
+                    targetColor,
+                    dismissState.progress.coerceIn(0f, 1f)
+                )
+
+            Box(
+                modifier = Modifier.fillMaxSize().background(backgroundColor).padding(horizontal = 16.dp),
+                contentAlignment =
+                    when (direction) {
+                        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                        SwipeToDismissBoxValue.Settled -> Alignment.Center
+                    }
+            ) {
+                when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Text(
+                            text = "SUBMIT",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Text(
+                            text = "CANCEL",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    SwipeToDismissBoxValue.Settled -> Unit
+                }
+            }
+        }
+    ) {
+        content()
     }
 }
 
