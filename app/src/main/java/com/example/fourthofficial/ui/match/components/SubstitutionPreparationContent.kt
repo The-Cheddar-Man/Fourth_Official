@@ -166,7 +166,7 @@ fun SubstitutionPreparationContent(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().weight(1f)
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp)
                 )
 
                 Row(
@@ -645,7 +645,7 @@ private fun SubstitutionAssignmentRow(
         modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(text = playerOffLabel, style = MaterialTheme.typography.titleSmall)
+        Text(text = playerOffLabel, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 4.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),

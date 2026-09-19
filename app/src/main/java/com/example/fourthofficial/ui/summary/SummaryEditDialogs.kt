@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -134,28 +136,44 @@ fun EditScoreDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
-                    onSave(selectedPlayerId, selectedType, timeMs)
-                },
-                enabled = timeIsValid,
-                shape = AppButtonShape
-            )
-            { Text("Save") }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp))
-            {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = { showDeleteConfirmation = true },
                     shape = AppButtonShape,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                 ) {
                     Text("Delete")
                 }
-                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    onClick = {
+                        val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+
+                        onSave(
+                            selectedPlayerId,
+                            selectedType,
+                            timeMs
+                        )
+                    },
+                    enabled = timeIsValid,
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Save", maxLines = 1)
+                }
             }
         }
     )
@@ -278,36 +296,51 @@ fun EditSubstitutionDialog(
             }
         },
         confirmButton = {
-            Button(
-                enabled = canSave,
-                onClick = {
-                    val timeMs = parsedTimeMs?.takeIf { canSave } ?: return@Button
-                    val savedTimeMs =
-                        if (timeMs / 1000L == event.timeMs / 1000L) {
-                            event.timeMs
-                        } else {
-                            timeMs
-                        }
-
-                    onSave(selectedPlayerOffId, selectedPlayerOnId,
-                        selectedType, savedTimeMs)
-                },
-                shape = AppButtonShape)
-            { Text("Save") }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 OutlinedButton(
                     onClick = { showDeleteConfirmation = true },
                     shape = AppButtonShape,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                 ) {
                     Text("Delete")
                 }
-                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    enabled = canSave,
+                    onClick = {
+                        val timeMs = parsedTimeMs?.takeIf { canSave } ?: return@Button
+                        val savedTimeMs =
+                            if (timeMs / 1000L == event.timeMs / 1000L) {
+                                event.timeMs
+                            } else {
+                                timeMs
+                            }
+
+                        onSave(
+                            selectedPlayerOffId,
+                            selectedPlayerOnId,
+                            selectedType,
+                            savedTimeMs
+                        )
+                    },
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Save", maxLines = 1)
+                }
             }
         }
     )
@@ -428,39 +461,57 @@ fun EditDisciplineDialog(
         },
 
         confirmButton = {
-            Button(
-                enabled = timeIsValid,
-                onClick = {
-                    val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
-
-                    val savedTimeMs =
-                        if (timeMs / 1000L == event.timeMs / 1000L) {
-                            event.timeMs
-                        } else {
-                            timeMs
-                        }
-
-                    onSave(selectedPlayerId, selectedType,
-                        selectedReason, savedTimeMs)
-                },
-                shape = AppButtonShape
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Save")
-            }
-        },
-
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = { showDeleteConfirmation = true },
                     shape = AppButtonShape,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                 ) {
                     Text("Delete")
                 }
 
-                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel")}
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    enabled = timeIsValid,
+                    onClick = {
+                        val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+                        val savedTimeMs =
+                            if (timeMs / 1000L == event.timeMs / 1000L) {
+                                event.timeMs
+                            } else {
+                                timeMs
+                            }
+
+                        onSave(
+                            selectedPlayerId,
+                            selectedType,
+                            selectedReason,
+                            savedTimeMs
+                        )
+                    },
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp
+                    )
+                ) {
+                    Text(
+                        text = "Save",
+                        maxLines = 1
+                    )
+                }
             }
         }
     )
