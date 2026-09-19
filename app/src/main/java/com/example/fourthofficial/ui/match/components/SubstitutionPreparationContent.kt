@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -42,8 +41,10 @@ import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.ui.common.AppAlertDialog
 import com.example.fourthofficial.ui.common.TeamPanel
 import com.example.fourthofficial.ui.match.SubstitutionPreparationUiState
+import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.theme.DestructiveRed
 import com.example.fourthofficial.ui.theme.OnRedCard
 import com.example.fourthofficial.ui.theme.OnYellowCard
@@ -257,12 +258,11 @@ fun SubstitutionPreparationContent(
                 )
             }
             else {
-                AlertDialog(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                AppAlertDialog(
+                    title = "Substitution",
                     onDismissRequest = { replacementPickerFor = null },
-                    title = { Text("Substitution")},
                     text = { Text("No eligible replacement players are available.") },
-                    confirmButton = { Button(onClick = { replacementPickerFor = null })
+                    confirmButton = { Button(onClick = { replacementPickerFor = null }, shape = AppButtonShape)
                         {
                             Text("OK")
                         }

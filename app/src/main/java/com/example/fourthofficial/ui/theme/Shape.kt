@@ -5,9 +5,9 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 val AppButtonShape = RoundedCornerShape(6.dp)
-
 val AppCardShape = RoundedCornerShape(8.dp)
 
+val AppDialogShape = RoundedCornerShape(10.dp)
 val FourthOfficialShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(6.dp),

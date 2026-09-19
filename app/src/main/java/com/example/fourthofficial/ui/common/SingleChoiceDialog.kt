@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -21,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.fourthofficial.ui.theme.AppButtonShape
 
 @Composable
 fun <T> SingleChoiceDialog(
@@ -36,10 +35,9 @@ fun <T> SingleChoiceDialog(
     dismissText: String = "Cancel",
     enabledWhen: (T?) -> Boolean = { it != null }
 ) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = title,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(prompt)
@@ -74,13 +72,14 @@ fun <T> SingleChoiceDialog(
         confirmButton = {
             Button(
                 enabled = enabledWhen(selected),
-                onClick = { onConfirm(selected!!) }
+                onClick = { onConfirm(selected!!) },
+                shape = AppButtonShape
             ) {
                 Text(confirmText)
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
+            OutlinedButton(onClick = onDismiss, shape = AppButtonShape) {
                 Text(dismissText)
             }
         }

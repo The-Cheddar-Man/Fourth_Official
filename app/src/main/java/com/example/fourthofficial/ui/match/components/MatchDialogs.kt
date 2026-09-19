@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -18,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.fourthofficial.domain.event.DisciplineReason
@@ -28,7 +28,10 @@ import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.ui.common.AppAlertDialog
 import com.example.fourthofficial.ui.common.SingleChoiceDialog
+import com.example.fourthofficial.ui.theme.AppButtonShape
+import com.example.fourthofficial.ui.theme.AppDialogShape
 
 @Composable
 fun ActionMenuDialogue(
@@ -40,7 +43,7 @@ fun ActionMenuDialogue(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = AppDialogShape,
             color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .wrapContentWidth()
@@ -53,26 +56,14 @@ fun ActionMenuDialogue(
                 modifier = Modifier.padding(24.dp)
             ) {
                 Text(
-                    "Select Action For $playerName"
+                    text = "Select Action For $playerName",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
 
-                Button(
-                    onClick = onScore
-                ) {
-                    Text("Score")
-                }
-
-                Button(
-                    onClick = onSubstitution
-                ) {
-                    Text("Substitution")
-                }
-
-                Button(
-                    onClick = onDiscipline
-                ) {
-                    Text("Discipline")
-                }
+                Button(onClick = onScore, shape = AppButtonShape) { Text("Score") }
+                Button(onClick = onSubstitution, shape = AppButtonShape) { Text("Substitution") }
+                Button(onClick = onDiscipline, shape = AppButtonShape) { Text("Discipline") }
             }
         }
     }
@@ -202,18 +193,17 @@ fun StartNewMatchDialogue(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Start New Match") },
+        title = "Start New Match",
         text = {
             Text("Are you sure you want to start a new match?")
         },
         confirmButton = {
-            Button(onClick = onConfirm) { Text("Yes, New Game") }
+            Button(onClick = onConfirm, shape = AppButtonShape) { Text("Yes, New Game") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+            OutlinedButton(onClick = onDismiss, shape = AppButtonShape) { Text("Cancel") }
         }
     )
 }
@@ -225,10 +215,9 @@ fun FinishHalfDialogue(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (finishingMatch) "End Match" else "Log Half") },
+        title = if (finishingMatch) "End Match" else "Log Half",
         text = { Text(
                 when {
                     !canFinishHalf -> "This half is not over!"
@@ -238,10 +227,12 @@ fun FinishHalfDialogue(
             )
         },
         confirmButton = {
-            Button(onClick = onConfirm, enabled = canFinishHalf) {
+            Button(onClick = onConfirm, enabled = canFinishHalf, shape = AppButtonShape) {
                 Text(if (finishingMatch) "End Match" else "Log Half")
             }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { OutlinedButton(onClick = onDismiss, shape = AppButtonShape) {
+            Text("Cancel")
+        } }
     )
 }

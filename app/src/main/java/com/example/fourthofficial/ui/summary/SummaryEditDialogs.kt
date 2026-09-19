@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,6 +30,8 @@ import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.ui.common.AppAlertDialog
+import com.example.fourthofficial.ui.theme.AppButtonShape
 
 @Composable
 fun EditScoreDialog(
@@ -55,10 +56,9 @@ fun EditScoreDialog(
     val selectedPlayer = players.find { it.id == selectedPlayerId }
 
     if (showDeleteConfirmation) {
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surface,
+        AppAlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete Score") },
+            title = "Delete Score",
             text = {
                 Text("Delete this score event?")
 
@@ -69,18 +69,17 @@ fun EditScoreDialog(
                     )
                 }
             },
-            confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
+            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
             dismissButton = { OutlinedButton(onClick = {
-                showDeleteConfirmation = false }) { Text("Cancel") }
+                showDeleteConfirmation = false }, shape = AppButtonShape) { Text("Cancel") }
             }
         )
         return
     }
 
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Edit Score") },
+        title = "Edit Score",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp))
             {
@@ -138,15 +137,16 @@ fun EditScoreDialog(
                     val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
                     onSave(selectedPlayerId, selectedType, timeMs)
                 },
-                enabled = timeIsValid
+                enabled = timeIsValid,
+                shape = AppButtonShape
             )
             { Text("Save") }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp))
             {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }) { Text("Delete") }
-                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape) { Text("Delete") }
+                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
             }
         }
     )
@@ -180,10 +180,9 @@ fun EditSubstitutionDialog(
     val sortedPlayers = players.sortedBy { it.number }
 
     if (showDeleteConfirmation) {
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surface,
+        AppAlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete Substitution") },
+            title = "Delete Substitution",
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -191,19 +190,18 @@ fun EditSubstitutionDialog(
                     if (errorMessage != null) { Text(errorMessage) }
                 }
             },
-            confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
+            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
             dismissButton = {
-                OutlinedButton(onClick = { showDeleteConfirmation = false })
+                OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape)
                 { Text("Cancel") }
             }
         )
         return
     }
 
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Edit Substitution") },
+        title = "Edit Substitution",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -278,15 +276,15 @@ fun EditSubstitutionDialog(
 
                     onSave(selectedPlayerOffId, selectedPlayerOnId,
                         selectedType, savedTimeMs)
-                }
-            )
+                },
+                shape = AppButtonShape)
             { Text("Save") }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }) { Text("Delete") }
-                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape) { Text("Delete") }
+                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
             }
         }
     )
@@ -318,10 +316,9 @@ fun EditDisciplineDialog(
     val validReasons = disciplineReasonsFor(selectedType)
 
     if (showDeleteConfirmation) {
-        AlertDialog(
-            containerColor = MaterialTheme.colorScheme.surface,
+        AppAlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete Discipline") },
+            title = "Delete Discipline",
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -329,18 +326,17 @@ fun EditDisciplineDialog(
                     if (errorMessage != null) { Text(errorMessage) }
                 }
             },
-            confirmButton = { Button(onClick = onDelete) { Text("Delete") } },
-            dismissButton = { OutlinedButton(onClick = { showDeleteConfirmation = false }) {
+            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
+            dismissButton = { OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape) {
                 Text("Cancel") }
             }
         )
         return
     }
 
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surface,
+    AppAlertDialog(
         onDismissRequest = onCancel,
-        title = { Text("Edit Discipline") },
+        title = "Edit Discipline",
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -418,7 +414,8 @@ fun EditDisciplineDialog(
 
                     onSave(selectedPlayerId, selectedType,
                         selectedReason, savedTimeMs)
-                }
+                },
+                shape = AppButtonShape
             ) {
                 Text("Save")
             }
@@ -426,12 +423,12 @@ fun EditDisciplineDialog(
 
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }
+                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape
                 ) {
                     Text("Delete")
                 }
 
-                OutlinedButton(onClick = onCancel
+                OutlinedButton(onClick = onCancel, shape = AppButtonShape
                 ) {
                     Text("Cancel")
                 }
@@ -459,7 +456,8 @@ private fun <T> SelectionField(
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = AppButtonShape
             ) {
                 Text(value)
             }
