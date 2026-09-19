@@ -211,7 +211,7 @@ private fun TeamColumn(team: Team, onSave: (Team) -> Unit, modifier: Modifier = 
                     )
                     {
                         Text(
-                            text = "${player.number}. " + player.name.ifBlank { "(Unnamed)" },
+                            text = "${player.number}. " + player.name.ifBlank { " Player ${player.number}" },
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
