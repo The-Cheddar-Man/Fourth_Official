@@ -1,9 +1,10 @@
-package com.example.fourthofficial.ui.match.components
+package com.example.fourthofficial.ui.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ fun TeamPanel(
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     headerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     headerContentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    headerContent: (@Composable RowScope.() -> Unit)? = null,
     headerAction: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -42,24 +44,32 @@ fun TeamPanel(
     ) {
         Column {
             Surface(
-                modifier = Modifier.fillMaxWidth().height(40.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
                 color = headerColor,
                 contentColor = headerContentColor,
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = title,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (headerContent != null) {
+                        headerContent()
+                    } else {
+                        Text(
+                            text = title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
                     headerAction?.let { action ->
                         Spacer(modifier = Modifier.width(6.dp))

@@ -42,6 +42,7 @@ import com.example.fourthofficial.domain.match.MatchPlayerState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Player
+import com.example.fourthofficial.ui.common.TeamPanel
 import com.example.fourthofficial.ui.match.SubstitutionPreparationUiState
 import com.example.fourthofficial.ui.theme.DestructiveRed
 import com.example.fourthofficial.ui.theme.OnRedCard

@@ -3,10 +3,13 @@ package com.example.fourthofficial.ui.match.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +32,7 @@ import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.theme.AppCardShape
+import com.example.fourthofficial.ui.theme.MainScreenHeaderHeight
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 private enum class ClockDisplayMode {
@@ -92,7 +96,11 @@ fun MatchContent(
             }
         }
 
-        bodyContent()
+        Box(
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) {
+            bodyContent()
+        }
     }
 }
 
@@ -117,7 +125,7 @@ private fun MatchHeader(vm: MatchViewModel, clockDisplayMode: ClockDisplayMode, 
         vm.phase == MatchPhase.HALF_TIME || vm.phase == MatchPhase.SECOND_HALF || vm.phase == MatchPhase.FINISHED
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(MainScreenHeaderHeight),
         shape = AppCardShape,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(
@@ -273,10 +281,12 @@ fun MatchTeamColumns(
     onPlayerLongPressed: (TeamId, PlayerId) -> Unit,
     onPreparedSubstitutionsTapped: (TeamId) -> Unit
 ) {
-    Row {
+    Row(
+        modifier = Modifier.fillMaxSize()
+    ) {
         TeamColumn(
             team = vm.team1,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             vm = vm,
             playerStates = vm.team1PlayerStates,
             onPlayerTapped = { playerId -> onPlayerTapped(vm.team1.id, playerId) },
@@ -285,7 +295,7 @@ fun MatchTeamColumns(
         )
         TeamColumn(
             team = vm.team2,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             vm = vm,
             playerStates = vm.team2PlayerStates,
             onPlayerTapped = { playerId -> onPlayerTapped(vm.team2.id, playerId) },
