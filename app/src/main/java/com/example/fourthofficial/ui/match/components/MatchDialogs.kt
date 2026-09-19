@@ -2,11 +2,12 @@ package com.example.fourthofficial.ui.match.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -16,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,25 +46,53 @@ fun ActionMenuDialogue(
         Surface(
             shape = AppDialogShape,
             color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier
-                .wrapContentWidth()
-                .wrapContentHeight()
-                .padding(24.dp),
+            modifier = Modifier.widthIn(
+                min = 280.dp,
+                max = 360.dp
+            )
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(24.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "Select Action For $playerName",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
 
-                Button(onClick = onScore, shape = AppButtonShape) { Text("Score") }
-                Button(onClick = onSubstitution, shape = AppButtonShape) { Text("Substitution") }
-                Button(onClick = onDiscipline, shape = AppButtonShape) { Text("Discipline") }
+                FilledTonalButton(
+                    onClick = onScore,
+                    shape = AppButtonShape,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Score")
+                }
+
+                FilledTonalButton(
+                    onClick = onSubstitution,
+                    shape = AppButtonShape,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Substitution")
+                }
+
+                FilledTonalButton(
+                    onClick = onDiscipline,
+                    shape = AppButtonShape,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Discipline")
+                }
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = AppButtonShape,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
             }
         }
     }
