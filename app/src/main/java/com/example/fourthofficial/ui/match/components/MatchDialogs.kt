@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -197,10 +198,19 @@ fun StartNewMatchDialogue(
         onDismissRequest = onDismiss,
         title = "Start New Match",
         text = {
-            Text("Are you sure you want to start a new match?")
+            Text("Are you sure you want to start a new match? (Players and team names are kept)")
         },
         confirmButton = {
-            Button(onClick = onConfirm, shape = AppButtonShape) { Text("Yes, New Game") }
+            Button(
+                onClick = onConfirm,
+                shape = AppButtonShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                Text("Start New Match")
+            }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss, shape = AppButtonShape) { Text("Cancel") }
@@ -227,8 +237,21 @@ fun FinishHalfDialogue(
             )
         },
         confirmButton = {
-            Button(onClick = onConfirm, enabled = canFinishHalf, shape = AppButtonShape) {
-                Text(if (finishingMatch) "End Match" else "Log Half")
+            Button(
+                onClick = onConfirm,
+                enabled = canFinishHalf,
+                shape = AppButtonShape,
+                colors =
+                    if (finishingMatch) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    }
+            ) {
+                Text(if (finishingMatch) { "End Match" } else { "Log Half" })
             }
         },
         dismissButton = { OutlinedButton(onClick = onDismiss, shape = AppButtonShape) {

@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,7 +70,18 @@ fun EditScoreDialog(
                     )
                 }
             },
-            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
             dismissButton = { OutlinedButton(onClick = {
                 showDeleteConfirmation = false }, shape = AppButtonShape) { Text("Cancel") }
             }
@@ -190,7 +202,18 @@ fun EditSubstitutionDialog(
                     if (errorMessage != null) { Text(errorMessage) }
                 }
             },
-            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape)
                 { Text("Cancel") }
@@ -326,7 +349,18 @@ fun EditDisciplineDialog(
                     if (errorMessage != null) { Text(errorMessage) }
                 }
             },
-            confirmButton = { Button(onClick = onDelete, shape = AppButtonShape) { Text("Delete") } },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
             dismissButton = { OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape) {
                 Text("Cancel") }
             }
