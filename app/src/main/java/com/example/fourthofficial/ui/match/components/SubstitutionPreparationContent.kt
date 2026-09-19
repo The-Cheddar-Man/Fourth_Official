@@ -88,14 +88,15 @@ fun SubstitutionPreparationContent(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = onDiscard, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = onDiscard, modifier = Modifier.weight(1f), shape = AppButtonShape)
                     {
                         Text("Discard")
                     }
 
                     OutlinedButton(
                         onClick = onReturnToMatch,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = AppButtonShape
                     ) {
                         Text("Return to Match")
                     }
@@ -104,7 +105,8 @@ fun SubstitutionPreparationContent(
                         onClick = {
                             onPreparationStateChange(SubstitutionPreparationUiState.AssignSubstitutions) },
                         enabled = substitutionCount > 0,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = AppButtonShape
                     ) {
                         Text("Continue ($substitutionCount)")
                     }
@@ -175,11 +177,12 @@ fun SubstitutionPreparationContent(
                         onClick = {
                             onPreparationStateChange(SubstitutionPreparationUiState.SelectPlayers)
                                   },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = AppButtonShape
                     )
                     { Text("Back") }
 
-                    OutlinedButton(onClick = onReturnToMatch, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = onReturnToMatch, modifier = Modifier.weight(1f), shape = AppButtonShape)
                     {
                         Text("Return to Match")
                     }
@@ -193,7 +196,8 @@ fun SubstitutionPreparationContent(
                             }
                         },
                         enabled = allAssignmentsComplete,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = AppButtonShape
                     )
                     { Text("Submit $substitutionCount") }
                 }
@@ -647,10 +651,10 @@ private fun SubstitutionAssignmentRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedButton(onClick = onChooseReplacement, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = onChooseReplacement, modifier = Modifier.weight(1f), shape = AppButtonShape)
             { Text(playerOnLabel ?: "Choose replacement") }
 
-            OutlinedButton(onClick = onChooseReason, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = onChooseReason, modifier = Modifier.weight(1f), shape = AppButtonShape)
             { Text(reasonLabel ?: "Choose reason")
             }
         }

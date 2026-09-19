@@ -43,6 +43,7 @@ import com.example.fourthofficial.export.TeamPdfExportOptions
 import com.example.fourthofficial.export.TeamPdfExporter
 import com.example.fourthofficial.ui.common.DataTable
 import com.example.fourthofficial.ui.common.TableColumn
+import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 enum class SummaryTab {
@@ -552,7 +553,8 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
                         opponent = opponent
                     )
                 )
-            }
+            },
+            shape = AppButtonShape
         ) {
             Text("Export PDF")
         }
@@ -592,7 +594,7 @@ private fun SummaryFilters(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            Button(onClick = onSwitchTeam) {
+            Button(onClick = onSwitchTeam, shape = AppButtonShape) {
                 Text(
                     team.name.ifBlank {
                         "Team ${team.index}"
@@ -605,7 +607,7 @@ private fun SummaryFilters(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            Button(onClick = onSwitchHalf) {
+            Button(onClick = onSwitchHalf, shape = AppButtonShape) {
                 Text("Half $halfIndex")
             }
         }

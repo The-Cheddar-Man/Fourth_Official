@@ -1,24 +1,30 @@
 package com.example.fourthofficial.ui.summary
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.DisciplineReason
@@ -111,28 +117,12 @@ fun EditScoreDialog(
                     onSelected = { selectedPlayerId = it.id }
                 )
 
-                OutlinedTextField(
+                MatchTimeField(
                     value = timeText,
-                    onValueChange = { timeText = it},
-                    label = { Text("Time (MM:SS)") },
-                    singleLine = true,
-                    isError = timeText.isNotBlank() && !timeIsValid,
-                    supportingText = {
-                        when {
-                            timeText.isNotBlank() && parsedTimeMs == null -> {
-                                Text("Enter time as MM:SS")
-                            }
-
-                            timeIsBeforeHalf -> {
-                                Text("Time cannot be earlier than the start of this half.")
-                            }
-
-                            timeIsAfterCurrentMatch -> {
-                                Text("Time cannot be later than the current match clock.")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { timeText = it },
+                    parsedTimeMs = parsedTimeMs,
+                    timeIsBeforeHalf = timeIsBeforeHalf,
+                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
                 )
 
                 if (errorMessage != null) {
@@ -157,7 +147,14 @@ fun EditScoreDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp))
             {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape) { Text("Delete") }
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
                 OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
             }
         }
@@ -199,7 +196,12 @@ fun EditSubstitutionDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Delete this substitution event?")
-                    if (errorMessage != null) { Text(errorMessage) }
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -252,36 +254,26 @@ fun EditSubstitutionDialog(
                     onSelected = { selectedPlayerOnId = it.id }
                 )
 
-                OutlinedTextField(
+                MatchTimeField(
                     value = timeText,
                     onValueChange = { timeText = it },
-                    label = { Text("Time (MM:SS)") },
-                    singleLine = true,
-                    isError = timeText.isNotBlank() && !timeIsValid,
-                    supportingText = {
-                        when {
-                            timeText.isNotBlank() && parsedTimeMs == null -> {
-                                Text("Enter time as MM:SS")
-                            }
-
-                            timeIsBeforeHalf -> {
-                                Text("Time cannot be earlier than the start of this half.")
-                            }
-
-                            timeIsAfterCurrentMatch -> {
-                                Text("Time cannot be later than the current match clock.")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    parsedTimeMs = parsedTimeMs,
+                    timeIsBeforeHalf = timeIsBeforeHalf,
+                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
                 )
 
                 if (!playersAreDifferent) {
-                    Text("Player Off and Player On must be different players.")
+                    Text(
+                        text = "Player Off and Player On must be different players.",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
 
                 if (errorMessage != null) {
-                    Text(errorMessage)
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
@@ -306,7 +298,15 @@ fun EditSubstitutionDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape) { Text("Delete") }
+
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
                 OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel") }
             }
         }
@@ -346,7 +346,12 @@ fun EditDisciplineDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Delete this discipline event?")
-                    if (errorMessage != null) { Text(errorMessage) }
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -405,31 +410,20 @@ fun EditDisciplineDialog(
                     onSelected = { selectedPlayerId = it.id }
                 )
 
-                OutlinedTextField(
+                MatchTimeField(
                     value = timeText,
                     onValueChange = { timeText = it },
-                    label = { Text("Time (MM:SS)") },
-                    singleLine = true,
-                    isError = timeText.isNotBlank() && !timeIsValid,
-                    supportingText = {
-                        when {
-                            timeText.isNotBlank() && parsedTimeMs == null -> {
-                                Text("Enter time as MM:SS")
-                            }
-
-                            timeIsBeforeHalf -> {
-                                Text("Time cannot be earlier than the start of this half.")
-                            }
-
-                            timeIsAfterCurrentMatch -> {
-                                Text("Time cannot be later than the current match clock.")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    parsedTimeMs = parsedTimeMs,
+                    timeIsBeforeHalf = timeIsBeforeHalf,
+                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
                 )
 
-                if (errorMessage != null) { Text(errorMessage) }
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
 
@@ -457,15 +451,16 @@ fun EditDisciplineDialog(
 
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showDeleteConfirmation = true }, shape = AppButtonShape
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete")
                 }
 
-                OutlinedButton(onClick = onCancel, shape = AppButtonShape
-                ) {
-                    Text("Cancel")
-                }
+                OutlinedButton(onClick = onCancel, shape = AppButtonShape) { Text("Cancel")}
             }
         }
     )
@@ -482,18 +477,44 @@ private fun <T> SelectionField(
     var expanded by remember { mutableStateOf(false) }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.fillMaxWidth())
-    {
-        Text(label)
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = AppButtonShape
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shape = MaterialTheme.shapes.small,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth().clickable { expanded = true }
             ) {
-                Text(value)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = value,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text = "▾",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             DropdownMenu(
@@ -502,7 +523,13 @@ private fun <T> SelectionField(
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(optionLabel(option)) },
+                        text = {
+                            Text(
+                                text = optionLabel(option),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         onClick = {
                             onSelected(option)
                             expanded = false
@@ -511,6 +538,52 @@ private fun <T> SelectionField(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MatchTimeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    parsedTimeMs: Long?,
+    timeIsBeforeHalf: Boolean,
+    timeIsAfterCurrentMatch: Boolean
+) {
+    val hasError = value.isNotBlank() && (parsedTimeMs == null || timeIsBeforeHalf || timeIsAfterCurrentMatch)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "Match Time",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            placeholder = { Text("MM:SS") },
+            isError = hasError,
+            supportingText = {
+                when {
+                    value.isNotBlank() &&
+                            parsedTimeMs == null -> { Text("Enter time as MM:SS") }
+
+                    timeIsBeforeHalf -> {
+                        Text("Time cannot be earlier than the start of this half.")
+                    }
+
+                    timeIsAfterCurrentMatch -> {
+                        Text("Time cannot be later than the current match clock.")
+                    }
+                }
+            },
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
