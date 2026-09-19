@@ -1,6 +1,6 @@
 package com.example.fourthofficial.ui.common
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,13 +11,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.fourthofficial.ui.theme.AppButtonShape
 
@@ -40,7 +45,11 @@ fun <T> SingleChoiceDialog(
         title = title,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(prompt)
+                Text(
+                    text = prompt,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 Box(
                     modifier = Modifier
@@ -50,19 +59,55 @@ fun <T> SingleChoiceDialog(
                     LazyColumn {
                         items(options.size) { i ->
                             val opt = options[i]
-                            Row(
+                            val isSelected = selected == opt
+
+                            Surface(
+                                color =
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
+                                border = BorderStroke(
+                                    width = 1.dp,
+                                    color =
+                                        if (isSelected) {
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                        } else {
+                                            MaterialTheme.colorScheme.outlineVariant
+                                        }
+                                ),
+                                shape = MaterialTheme.shapes.small,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onSelected(opt) }
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(vertical = 2.dp)
+                                    .selectable(
+                                        selected = isSelected,
+                                        role = Role.RadioButton,
+                                        onClick = { onSelected(opt) }
+                                    )
                             ) {
-                                RadioButton(
-                                    selected = (selected == opt),
-                                    onClick = { onSelected(opt) }
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(optionLabel(opt))
+                                Row(
+                                    modifier = Modifier.padding(
+                                        horizontal = 8.dp,
+                                        vertical = 6.dp
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = null
+                                    )
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    Text(
+                                        text = optionLabel(opt),
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
