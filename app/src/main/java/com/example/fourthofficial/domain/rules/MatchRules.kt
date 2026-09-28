@@ -4,17 +4,16 @@ import com.example.fourthofficial.domain.match.MatchClock
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.match.MatchPlayerState
 
-fun isMatchInPlay(phase: MatchPhase, clock: MatchClock): Boolean {
-    return clock.isRunning &&
-            (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF)
+fun isActiveHalf(phase: MatchPhase): Boolean {
+    return phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF
 }
 
 fun canActOnPlayer(state: MatchPlayerState, phase: MatchPhase, clock: MatchClock): Boolean {
-    return state.isOnField && isMatchInPlay(phase, clock) &&
+    return state.isOnField && isActiveHalf(phase) &&
             !isYellowActive(state, clock.totalElapsedMs) && !state.isRedCarded
 }
 
-fun canFinishHalf(phase: MatchPhase, halfElapsedMs: Long, halfDurationMs: Long): Boolean {
+fun hasReachedHalfDuration(phase: MatchPhase, halfElapsedMs: Long, halfDurationMs: Long): Boolean {
     return (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF) &&
             halfElapsedMs >= halfDurationMs
 }

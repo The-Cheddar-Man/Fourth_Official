@@ -30,8 +30,8 @@ import com.example.fourthofficial.domain.rules.calculateScore
 import com.example.fourthofficial.domain.rules.canReturn
 import com.example.fourthofficial.domain.rules.canSubstituteOff
 import com.example.fourthofficial.domain.rules.canSubstituteOn
+import com.example.fourthofficial.domain.rules.isActiveHalf
 import com.example.fourthofficial.domain.rules.isDisciplineReasonValid
-import com.example.fourthofficial.domain.rules.isMatchInPlay
 import com.example.fourthofficial.domain.rules.replayMatchEvents
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.domain.team.Team
@@ -39,7 +39,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
-import com.example.fourthofficial.domain.rules.canFinishHalf as canFinishHalfRule
+import com.example.fourthofficial.domain.rules.hasReachedHalfDuration as hasReachedHalfDurationRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
 import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
 
@@ -148,7 +148,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun eligiblePlayersOn(teamId: TeamId): List<Player> {
-        if (!isMatchInPlay(phase, clock)) return emptyList()
+        if (!isActiveHalf(phase)) return emptyList()
 
         val team = when (teamId) {
             team1.id -> team1
@@ -175,7 +175,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun eligiblePlayersOff(teamId: TeamId): List<Player> {
-        if (!isMatchInPlay(phase, clock)) return emptyList()
+        if (!isActiveHalf(phase)) return emptyList()
 
         val team = when (teamId) {
             team1.id -> team1
@@ -201,8 +201,8 @@ class MatchViewModel : ViewModel() {
         }
     }
 
-    val canFinishHalf: Boolean
-        get() = canFinishHalfRule(
+    val hasReachedHalfDuration: Boolean
+        get() = hasReachedHalfDurationRule(
             phase = phase,
             halfElapsedMs = clock.halfElapsedMs,
             halfDurationMs = halfDurationMs
@@ -382,7 +382,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun applyPreparedSubstitutionBatch(teamId: TeamId) {
-        if (!isMatchInPlay(phase, clock)) return
+        if (!isActiveHalf(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.isEmpty()) return
         if (batch.substitutions.any { it.playerOnId == null || it.type == null }) return
@@ -414,8 +414,8 @@ class MatchViewModel : ViewModel() {
     }
 
     fun applyPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId): EventEditResult {
-        if (!isMatchInPlay(phase, clock)) {
-            return EventEditResult.Failure("The match must be in play to submit a substitution.")
+        if (!isActiveHalf(phase)) {
+            return EventEditResult.Failure("A substitution can only be submitted during a half.")
         }
 
         val batch = getPreparedSubstitutionBatch(teamId) ?:
@@ -449,7 +449,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun addPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId) {
-        if (!isMatchInPlay(phase, clock)) return
+        if (!isActiveHalf(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.any { it.playerOffId == playerOffId }) return
 
@@ -469,7 +469,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun setPreparedSubstitutionPlayerOn(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId) {
-        if (!isMatchInPlay(phase, clock)) return
+        if (!isActiveHalf(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (playerOffId == playerOnId) return
 
@@ -512,7 +512,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun setPreparedSubstitutionType(teamId: TeamId, playerOffId: PlayerId, type: SubstitutionType) {
-        if (!isMatchInPlay(phase, clock)) return
+        if (!isActiveHalf(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId) ?: return
         if (batch.substitutions.none { it.playerOffId == playerOffId }) return
 
@@ -854,7 +854,6 @@ class MatchViewModel : ViewModel() {
 
     fun logHalf() {
         if (phase != MatchPhase.FIRST_HALF) return
-        if (!canFinishHalf) return
 
         stopClock()
 
@@ -868,7 +867,6 @@ class MatchViewModel : ViewModel() {
 
     fun endMatch() {
         if (phase != MatchPhase.SECOND_HALF) return
-        if (!canFinishHalf) return
 
         stopClock()
 

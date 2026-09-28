@@ -118,6 +118,7 @@ fun MatchScreen(
         is MatchScreenUiState.ActionMenu -> {
             ActionMenuDialogue(
                 playerName = selectedPlayer(state.teamId, state.playerId),
+                isClockRunning = vm.clock.isRunning,
                 onScore = {
                     uiState = MatchScreenUiState.ScorePick(
                         state.teamId,
@@ -220,11 +221,11 @@ fun MatchScreen(
     }
 
     if (showLogHalfDialog) {
-        val canFinishHalf = vm.canFinishHalf
+        val hasReachedHalfDuration = vm.hasReachedHalfDuration
         val finishingMatch = vm.phase == MatchPhase.SECOND_HALF
 
         FinishHalfDialogue(
-            canFinishHalf = canFinishHalf,
+            hasReachedHalfDuration = hasReachedHalfDuration,
             finishingMatch = finishingMatch,
             onConfirm = {
                 when (vm.phase) {

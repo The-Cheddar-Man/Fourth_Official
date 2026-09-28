@@ -37,6 +37,7 @@ import com.example.fourthofficial.ui.theme.AppDialogShape
 @Composable
 fun ActionMenuDialogue(
     playerName: String,
+    isClockRunning: Boolean,
     onScore: () -> Unit,
     onSubstitution: () -> Unit,
     onDiscipline: () -> Unit,
@@ -61,6 +62,16 @@ fun ActionMenuDialogue(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
+
+                if (!isClockRunning)
+                {
+                    Text(
+                        text = "Clock is stopped",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
 
                 FilledTonalButton(
                     onClick = onScore,
@@ -248,7 +259,7 @@ fun StartNewMatchDialogue(
 
 @Composable
 fun FinishHalfDialogue(
-    canFinishHalf: Boolean,
+    hasReachedHalfDuration: Boolean,
     finishingMatch: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
@@ -258,7 +269,8 @@ fun FinishHalfDialogue(
         title = if (finishingMatch) "End Match" else "Log Half",
         text = { Text(
                 when {
-                    !canFinishHalf -> "This half is not over!"
+                    !hasReachedHalfDuration  && finishingMatch -> "Second half not yet at 80 minutes. End the match anyway?"
+                    !hasReachedHalfDuration -> "First half not yet at 40 minutes. End the half anyway?"
                     finishingMatch -> "End the match?"
                     else -> "Log the first half?"
                 }
@@ -267,7 +279,6 @@ fun FinishHalfDialogue(
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                enabled = canFinishHalf,
                 shape = AppButtonShape,
                 colors =
                     if (finishingMatch) {
