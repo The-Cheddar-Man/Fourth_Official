@@ -805,7 +805,7 @@ class MatchViewModel : ViewModel() {
     //==================
 
     //region Clock
-    val halfDurationMs = 40L * 60L * 1000L
+    val halfDurationMs = 1L * 60L * 1000L
     private var startRealtimeMs: Long = 0L
     private var baseHalfElapsedMs: Long = 0L
     private var baseTotalElapsedMs: Long = 0L

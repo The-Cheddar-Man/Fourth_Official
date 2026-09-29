@@ -1,5 +1,6 @@
 package com.example.fourthofficial.ui.summary
 
+import com.example.fourthofficial.export.PdfMatchPeriod
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,11 +98,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
             )
 
             SummaryTab.Disciplines -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Export -> ExportTab(
-                vm = vm,
-                selectedTeamIndex = selectedTeam,
-                onSelectedTeamChange = { selectedTeam = it }
-            )
+            SummaryTab.Export -> ExportTab(vm = vm)
         }
     }
 }
@@ -159,10 +156,10 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                 errorMessage = editError,
                 onSave = { playerId, scoreType, timeMs ->
                     when (val result = vm.updateScore(
-                            eventId = scoreToEdit.id,
-                            playerId = playerId,
-                            scoreType = scoreType,
-                            timeMs = timeMs)
+                        eventId = scoreToEdit.id,
+                        playerId = playerId,
+                        scoreType = scoreType,
+                        timeMs = timeMs)
                     ) {
                         EventEditResult.Success -> {
                             editError = null
@@ -381,19 +378,24 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
-                      selectedTeamIndex: Int, onSelectedTeamChange: (Int) -> Unit) {
+private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
     val context = LocalContext.current
     val exporter = remember { TeamPdfExporter() }
     var includeScores by rememberSaveable { mutableStateOf(true) }
+    var includeTeam1 by rememberSaveable { mutableStateOf(true) }
+    var includeTeam2 by rememberSaveable { mutableStateOf(true) }
     var includeSubstitutions by rememberSaveable { mutableStateOf(true) }
     var includeDiscipline by rememberSaveable { mutableStateOf(true) }
+    var selectedPeriod by rememberSaveable { mutableStateOf(PdfMatchPeriod.FULL_MATCH) }
     var pendingExport by remember { mutableStateOf<PendingPdfExport?>(null) }
     var exportMessage by remember { mutableStateOf<String?>(null) }
     val team1 = vm.team1
     val team2 = vm.team2
-    val selectedTeam = if (selectedTeamIndex == 1) { team1 } else { team2 }
-    val opponent = if (selectedTeamIndex == 1) { team2 } else { team1 }
+    val includedTeamIds =
+        buildSet {
+            if (includeTeam1) { add(team1.id) }
+            if (includeTeam2) { add(team2.id) }
+        }
 
     val includedEventTypes =
         buildSet {
@@ -410,7 +412,10 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
             }
         }
 
-    val exportOptions = TeamPdfExportOptions(includedEventTypes = includedEventTypes)
+    val exportOptions = TeamPdfExportOptions(
+        includedEventTypes = includedEventTypes,
+        period = selectedPeriod
+    )
 
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"))
@@ -429,7 +434,7 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
             outputStream.use { stream ->
                 exporter.export(
                     matchState = export.matchState,
-                    teamId = export.teamId,
+                    teamIds = export.teamIds,
                     options = export.options,
                     outputStream = stream
                 )
@@ -450,10 +455,13 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
     ) {
         Text("Export Match Report", style = MaterialTheme.typography.headlineMedium)
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Team", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Teams",
+                style = MaterialTheme.typography.titleMedium
+            )
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -463,10 +471,10 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    RadioButton(
-                        selected = selectedTeamIndex == 1,
-                        onClick = {
-                            onSelectedTeamChange(1)
+                    Checkbox(
+                        checked = includeTeam1,
+                        onCheckedChange = {
+                            includeTeam1 = it
                             exportMessage = null
                         }
                     )
@@ -478,15 +486,40 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    RadioButton(
-                        selected = selectedTeamIndex == 2,
-                        onClick = {
-                            onSelectedTeamChange(2)
+                    Checkbox(
+                        checked = includeTeam2,
+                        onCheckedChange = {
+                            includeTeam2 = it
                             exportMessage = null
                         }
                     )
 
                     Text(team2.name.ifBlank { "Team ${team2.index}" })
+                }
+            }
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Period",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            PdfMatchPeriod.entries.forEach { period ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedPeriod == period,
+                        onClick = {
+                            selectedPeriod = period
+                            exportMessage = null
+                        }
+                    )
+                    Text(period.label)
                 }
             }
         }
@@ -538,19 +571,21 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
         }
 
         Button(
-            enabled = exportOptions.hasSelectedEventTypes,
+            enabled = includedTeamIds.isNotEmpty() && exportOptions.hasSelectedEventTypes,
             onClick = {
                 exportMessage = null
                 pendingExport = PendingPdfExport(
-                        matchState = vm.matchState,
-                        teamId = selectedTeam.id,
-                        options = exportOptions
-                    )
+                    matchState = vm.matchState,
+                    teamIds = includedTeamIds,
+                    options = exportOptions
+                )
 
                 createPdfLauncher.launch(
                     buildPdfFileName(
-                        selectedTeam = selectedTeam,
-                        opponent = opponent
+                        selectedTeamIds = includedTeamIds,
+                        team1 = team1,
+                        team2 = team2,
+                        period = selectedPeriod
                     )
                 )
             },
@@ -565,17 +600,29 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
 
 private data class PendingPdfExport(
     val matchState: MatchState,
-    val teamId: TeamId,
+    val teamIds: Set<TeamId>,
     val options: TeamPdfExportOptions
 )
 
-private fun buildPdfFileName(selectedTeam: Team, opponent: Team): String {
-    val selectedTeamName = selectedTeam.name.ifBlank { "Team ${selectedTeam.index}" }
-    val opponentName = opponent.name.ifBlank { "Team ${opponent.index}" }
-    val rawName = "${selectedTeamName}_vs_" + "${opponentName}_" + "${selectedTeamName}_Report"
+private fun buildPdfFileName(selectedTeamIds: Set<TeamId>, team1: Team,
+                             team2: Team, period: PdfMatchPeriod): String
+{
+    val team1Name = team1.name.ifBlank { "Team ${team1.index}" }
+    val team2Name = team2.name.ifBlank { "Team ${team2.index}" }
+
+    val reportName =
+        when {
+            team1.id in selectedTeamIds && team2.id in selectedTeamIds -> "Match_Report"
+            team1.id in selectedTeamIds -> "${team1Name}_Report"
+            else -> "${team2Name}_Report"
+        }
+
+    val rawName = "${team1Name}_vs_${team2Name}_${period.label}_$reportName"
 
     val safeName =
-        rawName.replace(Regex("[^\\p{L}\\p{N}._-]+"), "_").trim('_')
+        rawName
+            .replace(Regex("[^\\p{L}\\p{N}._-]+"), "_")
+            .trim('_')
 
     return "$safeName.pdf"
 }

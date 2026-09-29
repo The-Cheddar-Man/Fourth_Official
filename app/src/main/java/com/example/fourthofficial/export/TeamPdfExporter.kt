@@ -32,20 +32,20 @@ class TeamPdfExporter {
         private const val ROW_VERTICAL_PADDING = 7f
     }
 
-    fun export(matchState: MatchState, teamId: TeamId,
+    fun export(matchState: MatchState, teamIds: Set<TeamId>,
                options: TeamPdfExportOptions, outputStream: OutputStream)
     {
         require(options.hasSelectedEventTypes) { "At least one event type must be selected." }
+        require(teamIds.isNotEmpty()) { "At least one team must be selected." }
 
-        val selectedTeam = when (teamId) {
-            matchState.team1.team.id -> matchState.team1.team
-            matchState.team2.team.id -> matchState.team2.team
-            else -> throw IllegalArgumentException("Selected team does not belong to this match.")
-        }
+        val matchTeams = listOf(matchState.team1.team, matchState.team2.team)
+        val selectedTeams = matchTeams.filter { team -> team.id in teamIds }
+
+        require(selectedTeams.size == teamIds.size) { "A selected team does not belong to this match." }
 
         val orderedEvents = getOrderedEvents(
             matchState = matchState,
-            teamId = teamId,
+            teamIds = teamIds,
             options = options
         )
 
@@ -59,7 +59,7 @@ class TeamPdfExporter {
             var y = drawReportHeader(
                 canvas = canvas,
                 matchState = matchState,
-                selectedTeam = selectedTeam,
+                selectedTeams = selectedTeams,
                 options = options
             )
 
@@ -75,12 +75,15 @@ class TeamPdfExporter {
                 )
             } else {
                 for (event in orderedEvents) {
-                    val detailLines =
-                        wrapText(
-                            text = eventDetails(event = event, team = selectedTeam),
-                            paint = bodyPaint(),
-                        )
+                    val eventTeam = teamForId(matchState = matchState, teamId = event.teamId)
+                    val eventDetails = eventDetails(event = event, team = eventTeam)
+                    val detailText =
+                        if (selectedTeams.size > 1)
+                            "${teamName(eventTeam)} - $eventDetails"
+                        else
+                            eventDetails
 
+                    val detailLines = wrapText(text = detailText, paint = bodyPaint())
                     val rowHeight = calculateRowHeight(detailLines)
 
                     if (y + rowHeight > PAGE_HEIGHT - BOTTOM_MARGIN)
@@ -90,7 +93,10 @@ class TeamPdfExporter {
                         pageNumber++
                         page = startPage(pdf = pdf, pageNumber = pageNumber)
                         canvas = page.canvas
-                        y = drawContinuationHeader(canvas = canvas, selectedTeam = selectedTeam)
+                        y = drawContinuationHeader(
+                            canvas = canvas,
+                            selectedTeams = selectedTeams
+                        )
                         y = drawTableHeader(canvas = canvas, y = y)
                     }
 
@@ -112,18 +118,21 @@ class TeamPdfExporter {
         }
     }
 
-    private fun getOrderedEvents(matchState: MatchState, teamId: TeamId,
+    private fun getOrderedEvents(matchState: MatchState, teamIds: Set<TeamId>,
                                  options: TeamPdfExportOptions): List<MatchEvent>
     {
         return matchState.events
             .withIndex()
             .filter { indexedEvent ->
                 val event = indexedEvent.value
-                event.teamId == teamId && eventType(event) in options.includedEventTypes
-            }.sortedWith(
-                compareBy<IndexedValue<MatchEvent>> { it.value.halfIndex }
-                    .thenBy { it.value.timeMs / 1000L }
-                    .thenBy { it.index }
+
+                event.teamId in teamIds &&
+                        eventType(event) in options.includedEventTypes &&
+                        options.period.includesHalf(event.halfIndex)
+            }
+            .sortedWith(compareBy<IndexedValue<MatchEvent>> { it.value.halfIndex }
+                .thenBy { it.value.timeMs / 1000L }
+                .thenBy { it.index }
             ).map { it.value }
     }
 
@@ -149,7 +158,7 @@ class TeamPdfExporter {
     }
 
     private fun drawReportHeader(canvas: Canvas, matchState: MatchState,
-                                 selectedTeam: Team, options: TeamPdfExportOptions): Float
+                                 selectedTeams: List<Team>, options: TeamPdfExportOptions): Float
     {
         var y = MARGIN
         canvas.drawText(
@@ -171,8 +180,10 @@ class TeamPdfExporter {
 
         y += 24f
 
+        val reportTeams = selectedTeams.joinToString(", ") { teamName(it) }
+
         canvas.drawText(
-            "Team report: ${teamName(selectedTeam)}",
+            "Report teams: $reportTeams",
             MARGIN,
             y,
             bodyBoldPaint()
@@ -180,15 +191,23 @@ class TeamPdfExporter {
 
         y += 22f
 
+        canvas.drawText(
+            "Period: ${options.period.label}",
+            MARGIN,
+            y,
+            bodyPaint()
+        )
+
+        y += 20f
+
         val team1Score = scoreForTeam(matchState = matchState, teamId = team1.id)
         val team2Score = scoreForTeam(matchState = matchState, teamId = team2.id)
 
         val scoreLabel =
-            if (matchState.phase == MatchPhase.FINISHED) {
+            if (matchState.phase == MatchPhase.FINISHED)
                 "Final score"
-            } else {
+            else
                 "Current score"
-            }
 
         canvas.drawText(
             "$scoreLabel: " + "${teamName(team1)} $team1Score - " + "$team2Score ${teamName(team2)}",
@@ -230,10 +249,12 @@ class TeamPdfExporter {
         return y + 30f
     }
 
-    private fun drawContinuationHeader(canvas: Canvas, selectedTeam: Team): Float
+    private fun drawContinuationHeader(canvas: Canvas, selectedTeams: List<Team>): Float
     {
+        val reportTeams = selectedTeams.joinToString(", ") { teamName(it) }
+
         canvas.drawText(
-            "${teamName(selectedTeam)} - Match Events",
+            "$reportTeams - Match Events",
             MARGIN,
             MARGIN,
             headingPaint()
@@ -256,7 +277,7 @@ class TeamPdfExporter {
     }
 
     private fun drawEventRow(canvas: Canvas, event: MatchEvent,
-        detailLines: List<String>, y: Float): Float
+                             detailLines: List<String>, y: Float): Float
     {
         val rowHeight = calculateRowHeight(detailLines)
         val textY = y + ROW_VERTICAL_PADDING + 9f
@@ -310,8 +331,8 @@ class TeamPdfExporter {
             }
             is Substitution -> {
                 "${playerLabel(team, event.playerOffId)} off, " +
-                "${playerLabel(team, event.playerOnId)} on " +
-                "(${event.type.label})"
+                        "${playerLabel(team, event.playerOnId)} on " +
+                        "(${event.type.label})"
             }
 
             is Discipline -> { "${playerLabel(team, event.playerId)} - " + event.reason.label }
@@ -349,6 +370,15 @@ class TeamPdfExporter {
     private fun teamName(team: Team): String
     {
         return team.name.ifBlank { "Team ${team.index}" }
+    }
+
+    private fun teamForId(matchState: MatchState, teamId: TeamId): Team
+    {
+        return when (teamId) {
+            matchState.team1.team.id -> matchState.team1.team
+            matchState.team2.team.id -> matchState.team2.team
+            else -> throw IllegalArgumentException("Event belongs to an unknown team.")
+        }
     }
 
     private fun formatMatchTime(timeMs: Long): String
