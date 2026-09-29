@@ -60,7 +60,6 @@ fun MatchScreen(
             SubstitutionPreparationContent(
                 vm = vm,
                 teamId = currentUiState.teamId,
-                teamName = selectedTeamName(currentUiState.teamId),
                 preparationState = currentUiState.preparationState,
                 onPreparationStateChange = { preparationState ->
                     uiState = MatchScreenUiState.PreparingSubstitutions(

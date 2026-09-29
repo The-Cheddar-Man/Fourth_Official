@@ -6,10 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -59,24 +61,26 @@ import kotlinx.coroutines.launch
 fun SubstitutionPreparationContent(
     vm: MatchViewModel,
     teamId: TeamId,
-    teamName: String,
     preparationState: SubstitutionPreparationUiState,
     onPreparationStateChange: (SubstitutionPreparationUiState) -> Unit,
     onReturnToMatch: () -> Unit,
     onDiscard: () -> Unit
 ) {
-    val batch = vm.getPreparedSubstitutionBatch(teamId) ?: return
-    val substitutionCount = batch.substitutions.size
+    val focusedBatch = vm.getPreparedSubstitutionBatch(teamId)
+    val substitutionCount = focusedBatch?.substitutions?.size ?: 0
     val initialReplacementPlayerOffId =
         when (preparationState) {
             SubstitutionPreparationUiState.SelectPlayers -> null
             is SubstitutionPreparationUiState.AssignSubstitutions -> preparationState.initialReplacementPlayerOffId
         }
-
-    var replacementPickerFor by remember(teamId, initialReplacementPlayerOffId) {
-        mutableStateOf(initialReplacementPlayerOffId)
+    var replacementSelectionFor by remember(teamId, initialReplacementPlayerOffId) {
+        mutableStateOf(initialReplacementPlayerOffId?.let { playerOffId ->
+            SubstitutionSelectionTarget(teamId = teamId, playerOffId = playerOffId) }
+        )
     }
-    var reasonPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
+    var reasonSelectionFor by remember(teamId) {
+        mutableStateOf<SubstitutionSelectionTarget?>(null)
+    }
     var swipeErrorMessage by remember(teamId) { mutableStateOf<String?>(null) }
 
     Column(
@@ -122,17 +126,8 @@ fun SubstitutionPreparationContent(
             }
 
             is SubstitutionPreparationUiState.AssignSubstitutions -> {
-                val enteredDirectly = preparationState.initialReplacementPlayerOffId != null
-
-                val allAssignmentsComplete =
-                    batch.substitutions.isNotEmpty() &&
-                            batch.substitutions.all { substitution ->
-                                substitution.playerOnId != null &&
-                                        substitution.type != null
-                            }
-
                 Text(
-                    text = "$teamName — Assign Substitutions",
+                    text = "Assign Substitutions",
                     style = MaterialTheme.typography.titleMedium
                 )
 
@@ -145,39 +140,97 @@ fun SubstitutionPreparationContent(
                     )
                 }
 
-                SubstitutionAssignmentList(
-                    vm = vm,
-                    teamId = teamId,
-                    substitutions = batch.substitutions,
-                    onChooseReplacement = { playerOffId -> replacementPickerFor = playerOffId },
-                    onChooseReason = { playerOffId -> reasonPickerFor = playerOffId },
-                    onCancelSubstitution = { playerOffId ->
-                        swipeErrorMessage = null
-                        vm.removePreparedSubstitution(teamId = teamId, playerOffId = playerOffId)
-                        if (vm.getPreparedSubstitutions(teamId).isEmpty()) { onReturnToMatch() }
-                    },
+                val orderedTeams = listOf(vm.team1, vm.team2)
 
-                    onSubmitSubstitution = { playerOffId ->
-                        when (val result =
-                            vm.applyPreparedSubstitution(teamId = teamId, playerOffId = playerOffId)
-                        ) {
-                            EventEditResult.Success -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    orderedTeams.forEach { team ->
+                        val substitutions = vm.getPreparedSubstitutions(team.id)
+
+                        SubstitutionAssignmentTeamSection(
+                            vm = vm,
+                            teamId = team.id,
+                            teamName = team.name.ifBlank { "Team ${team.index}" },
+                            substitutions = substitutions,
+
+                            onChooseReplacement = { playerOffId ->
+                                replacementSelectionFor =
+                                    SubstitutionSelectionTarget(
+                                        teamId = team.id,
+                                        playerOffId = playerOffId
+                                    )
+                            },
+
+                            onChooseReason = { playerOffId ->
+                                reasonSelectionFor =
+                                    SubstitutionSelectionTarget(
+                                        teamId = team.id,
+                                        playerOffId = playerOffId
+                                    )
+                            },
+
+                            onCancelSubstitution = { playerOffId ->
                                 swipeErrorMessage = null
-                                if (vm.getPreparedSubstitutions(teamId).isEmpty())
-                                {
+
+                                vm.removePreparedSubstitution(
+                                    teamId = team.id,
+                                    playerOffId = playerOffId
+                                )
+
+                                if (vm.getPreparedSubstitutions(team.id).isEmpty()) {
+                                    vm.cancelPreparedSubstitutionBatch(team.id)
+                                }
+
+                                if (noPreparedSubstitutionsRemain(vm)) {
                                     onReturnToMatch()
                                 }
-                                true
-                            }
+                            },
 
-                            is EventEditResult.Failure -> {
-                                swipeErrorMessage = result.message
-                                false
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp)
-                )
+                            onSubmitSubstitution = { playerOffId ->
+                                when (
+                                    val result =
+                                        vm.applyPreparedSubstitution(
+                                            teamId = team.id,
+                                            playerOffId = playerOffId
+                                        )
+                                ) {
+                                    EventEditResult.Success -> {
+                                        swipeErrorMessage = null
+
+                                        if (noPreparedSubstitutionsRemain(vm)) {
+                                            onReturnToMatch()
+                                        }
+                                        true
+                                    }
+
+                                    is EventEditResult.Failure -> {
+                                        swipeErrorMessage = result.message
+                                        false
+                                    }
+                                }
+                            },
+
+                            onSubmitAll = {
+                                vm.applyPreparedSubstitutionBatch(team.id)
+
+                                if (noPreparedSubstitutionsRemain(vm)) {
+                                    onReturnToMatch()
+                                }
+                            },
+
+                            modifier =
+                                if (substitutions.isEmpty()) {
+                                    Modifier.fillMaxWidth()
+                                } else {
+                                    Modifier.fillMaxWidth().weight(1f)
+                                }
+                        )
+                    }
+                }
+
+                val enteredDirectly = preparationState.initialReplacementPlayerOffId != null
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -185,13 +238,12 @@ fun SubstitutionPreparationContent(
                 ) {
                     if (!enteredDirectly) {
                         OutlinedButton(
-                            onClick = {
-                                onPreparationStateChange(SubstitutionPreparationUiState.SelectPlayers)
-                            },
+                            onClick = { onPreparationStateChange(SubstitutionPreparationUiState.SelectPlayers) },
                             modifier = Modifier.weight(1f),
                             shape = AppButtonShape
-                        )
-                        { Text("Back") }
+                        ) {
+                            Text("Back")
+                        }
                     }
 
                     OutlinedButton(
@@ -201,89 +253,87 @@ fun SubstitutionPreparationContent(
                     ) {
                         Text("Return to Match")
                     }
-
-                    Button(
-                        onClick = {
-                            vm.applyPreparedSubstitutionBatch(teamId)
-                            if (vm.getPreparedSubstitutionBatch(teamId) == null)
-                            {
-                                onReturnToMatch()
-                            }
-                        },
-                        enabled = allAssignmentsComplete,
-                        modifier = Modifier.weight(1f),
-                        shape = AppButtonShape
-                    )
-                    { Text("Submit $substitutionCount") }
                 }
             }
         }
     }
-    val replacementPlayerOffId = replacementPickerFor
-    val reasonPlayerOffId = reasonPickerFor
 
-    if (reasonPlayerOffId != null) {
+    val replacementTarget = replacementSelectionFor
+    val reasonTarget = reasonSelectionFor
+
+    if (reasonTarget != null) {
         SubstituteReasonDialogue(
             onConfirm = { substitutionType ->
                 vm.setPreparedSubstitutionType(
-                    teamId = teamId,
-                    playerOffId = reasonPlayerOffId,
+                    teamId = reasonTarget.teamId,
+                    playerOffId = reasonTarget.playerOffId,
                     type = substitutionType
                 )
-                reasonPickerFor = null
+
+                reasonSelectionFor = null
             },
-            onDismiss = { reasonPickerFor = null }
+            onDismiss = {
+                reasonSelectionFor = null
+            }
         )
     }
 
-    if (replacementPlayerOffId != null) {
-        val team = when (teamId) {
-            vm.team1.id -> vm.team1
-            vm.team2.id -> vm.team2
-            else -> null
-        }
+    if (replacementTarget != null) {
+        val selectionTeam =
+            when (replacementTarget.teamId) {
+                vm.team1.id -> vm.team1
+                vm.team2.id -> vm.team2
+                else -> null
+            }
 
-        if (team != null) {
-            val substitution = batch.substitutions.find { it.playerOffId == replacementPlayerOffId }
-            val currentPlayerOn = substitution?.playerOnId?.let { playerOnId ->
-                team.players.find { it.id == playerOnId } }
+        val selectionBatch = vm.getPreparedSubstitutionBatch(replacementTarget.teamId)
 
-            val eligiblePlayers =
-                (vm.eligiblePlayersOn(teamId) + listOfNotNull(currentPlayerOn))
-                    .distinctBy { player -> player.id.value }
-                    .sortedBy { player -> player.number }
+        if (selectionTeam != null && selectionBatch != null) {
+            val substitution = selectionBatch.substitutions.find {
+                it.playerOffId == replacementTarget.playerOffId
+            }
+            val currentPlayerOn = substitution?.playerOnId?.let {
+                    playerOnId -> selectionTeam.players.find { it.id == playerOnId }
+            }
+
+            val eligiblePlayers = (vm.eligiblePlayersOn(replacementTarget.teamId) +
+                    listOfNotNull(currentPlayerOn))
+                .distinctBy { player -> player.id.value }
+                .sortedBy { player -> player.number }
 
             if (eligiblePlayers.isNotEmpty()) {
-                val playerOff = team.players.find { it.id == replacementPlayerOffId }
+                val playerOff = selectionTeam.players.find { it.id == replacementTarget.playerOffId }
 
-                val playerOffLabel = playerOff?.let { player ->
-                    "${player.number}. " + player.name.ifBlank { "(Unnamed)" } } ?: "Unknown player"
+                val playerOffLabel = playerOff?.let {
+                        player -> "${player.number}. " + player.name.ifBlank { "(Unnamed)" }
+                } ?: "Unknown player"
 
                 SubstitutePlayerOnDialogue(
                     playerOffLabel = playerOffLabel,
                     potentialSubs = eligiblePlayers,
                     onConfirm = { playerOnId ->
                         vm.setPreparedSubstitutionPlayerOn(
-                            teamId = teamId,
-                            playerOffId = replacementPlayerOffId,
+                            teamId = replacementTarget.teamId,
+                            playerOffId = replacementTarget.playerOffId,
                             playerOnId = playerOnId
                         )
 
-                        replacementPickerFor = null
-                        reasonPickerFor = replacementPlayerOffId
+                        replacementSelectionFor = null
+                        reasonSelectionFor = replacementTarget
                     },
-                    onDismiss = {
-                        replacementPickerFor = null
-                    }
+
+                    onDismiss = { replacementSelectionFor = null }
                 )
-            }
-            else {
+            } else {
                 AppAlertDialog(
                     title = "Substitution",
-                    onDismissRequest = { replacementPickerFor = null },
+                    onDismissRequest = { replacementSelectionFor = null },
                     text = { Text("No eligible replacement players are available.") },
-                    confirmButton = { Button(onClick = { replacementPickerFor = null }, shape = AppButtonShape)
-                        {
+                    confirmButton = {
+                        Button(
+                            onClick = { replacementSelectionFor = null },
+                            shape = AppButtonShape
+                        ) {
                             Text("OK")
                         }
                     }
@@ -327,11 +377,11 @@ private fun SubstitutionPlayerSelection(
 
     val pairColorsByPlayerId = buildMap {
         batch.substitutions.forEachIndexed { index, substitution ->
-                val playerOnId = substitution.playerOnId ?: return@forEachIndexed
-                val color = SubstitutionPairColors[index % SubstitutionPairColors.size]
+            val playerOnId = substitution.playerOnId ?: return@forEachIndexed
+            val color = SubstitutionPairColors[index % SubstitutionPairColors.size]
 
-                put(substitution.playerOffId, color)
-                put(playerOnId, color)
+            put(substitution.playerOffId, color)
+            put(playerOnId, color)
         }
     }
 
@@ -507,6 +557,78 @@ private fun SubstitutionPlayerTile(
 }
 
 @Composable
+private fun SubstitutionAssignmentTeamSection(
+    vm: MatchViewModel,
+    teamId: TeamId,
+    teamName: String,
+    substitutions: List<PreparedSubstitution>,
+    onChooseReplacement: (PlayerId) -> Unit,
+    onChooseReason: (PlayerId) -> Unit,
+    onCancelSubstitution: (PlayerId) -> Unit,
+    onSubmitSubstitution: (PlayerId) -> Boolean,
+    onSubmitAll: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val allAssignmentsComplete = substitutions.isNotEmpty() &&
+            substitutions.all { substitution ->
+                substitution.playerOnId != null && substitution.type != null
+            }
+
+    val title =
+        if (substitutions.isEmpty())
+            teamName
+        else
+            "$teamName (${substitutions.size})"
+
+    TeamPanel(
+        title = title,
+        headerContent = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+
+            OutlinedButton(
+                onClick = onSubmitAll,
+                enabled = allAssignmentsComplete,
+                shape = AppButtonShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Text(
+                    text = "Submit",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        },
+        modifier = modifier
+    ) {
+        if (substitutions.isEmpty()) {
+            Text(
+                text = "No substitutions prepared",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            )
+        } else {
+            SubstitutionAssignmentList(
+                vm = vm,
+                teamId = teamId,
+                substitutions = substitutions,
+                onChooseReplacement = onChooseReplacement,
+                onChooseReason = onChooseReason,
+                onCancelSubstitution = onCancelSubstitution,
+                onSubmitSubstitution = onSubmitSubstitution,
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false).padding(horizontal = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun SubstitutionAssignmentList(
     vm: MatchViewModel,
     teamId: TeamId,
@@ -536,7 +658,7 @@ private fun SubstitutionAssignmentList(
             playerStates[substitution.playerOffId]?.fieldPos ?: Int.MAX_VALUE
         }
 
-    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp))
+    LazyColumn(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp))
     {
         items(
             items = orderedSubstitutions,
@@ -659,7 +781,7 @@ private fun SubstitutionAssignmentRow(
 ) {
     Column(
         modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(text = playerOffLabel, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 4.dp))
 
@@ -675,4 +797,11 @@ private fun SubstitutionAssignmentRow(
             }
         }
     }
+}
+
+private data class SubstitutionSelectionTarget(val teamId: TeamId, val playerOffId: PlayerId)
+
+private fun noPreparedSubstitutionsRemain(vm: MatchViewModel): Boolean {
+    return vm.getPreparedSubstitutions(vm.team1.id).isEmpty() &&
+            vm.getPreparedSubstitutions(vm.team2.id).isEmpty()
 }
