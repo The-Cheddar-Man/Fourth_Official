@@ -67,7 +67,15 @@ fun SubstitutionPreparationContent(
 ) {
     val batch = vm.getPreparedSubstitutionBatch(teamId) ?: return
     val substitutionCount = batch.substitutions.size
-    var replacementPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
+    val initialReplacementPlayerOffId =
+        when (preparationState) {
+            SubstitutionPreparationUiState.SelectPlayers -> null
+            is SubstitutionPreparationUiState.AssignSubstitutions -> preparationState.initialReplacementPlayerOffId
+        }
+
+    var replacementPickerFor by remember(teamId, initialReplacementPlayerOffId) {
+        mutableStateOf(initialReplacementPlayerOffId)
+    }
     var reasonPickerFor by remember(teamId) { mutableStateOf<PlayerId?>(null) }
     var swipeErrorMessage by remember(teamId) { mutableStateOf<String?>(null) }
 
@@ -103,7 +111,7 @@ fun SubstitutionPreparationContent(
 
                     Button(
                         onClick = {
-                            onPreparationStateChange(SubstitutionPreparationUiState.AssignSubstitutions) },
+                            onPreparationStateChange(SubstitutionPreparationUiState.AssignSubstitutions()) },
                         enabled = substitutionCount > 0,
                         modifier = Modifier.weight(1f),
                         shape = AppButtonShape
@@ -113,7 +121,9 @@ fun SubstitutionPreparationContent(
                 }
             }
 
-            SubstitutionPreparationUiState.AssignSubstitutions -> {
+            is SubstitutionPreparationUiState.AssignSubstitutions -> {
+                val enteredDirectly = preparationState.initialReplacementPlayerOffId != null
+
                 val allAssignmentsComplete =
                     batch.substitutions.isNotEmpty() &&
                             batch.substitutions.all { substitution ->
@@ -173,17 +183,22 @@ fun SubstitutionPreparationContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (!enteredDirectly) {
+                        OutlinedButton(
+                            onClick = {
+                                onPreparationStateChange(SubstitutionPreparationUiState.SelectPlayers)
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = AppButtonShape
+                        )
+                        { Text("Back") }
+                    }
+
                     OutlinedButton(
-                        onClick = {
-                            onPreparationStateChange(SubstitutionPreparationUiState.SelectPlayers)
-                                  },
+                        onClick = onReturnToMatch,
                         modifier = Modifier.weight(1f),
                         shape = AppButtonShape
-                    )
-                    { Text("Back") }
-
-                    OutlinedButton(onClick = onReturnToMatch, modifier = Modifier.weight(1f), shape = AppButtonShape)
-                    {
+                    ) {
                         Text("Return to Match")
                     }
 
@@ -255,6 +270,7 @@ fun SubstitutionPreparationContent(
                         )
 
                         replacementPickerFor = null
+                        reasonPickerFor = replacementPlayerOffId
                     },
                     onDismiss = {
                         replacementPickerFor = null
