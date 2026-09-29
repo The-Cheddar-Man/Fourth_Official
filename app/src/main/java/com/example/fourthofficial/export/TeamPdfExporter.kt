@@ -302,7 +302,12 @@ class TeamPdfExporter {
     private fun eventDetails(event: MatchEvent, team: Team): String
     {
         return when (event) {
-            is Score -> { playerLabel(team = team, playerId = event.playerId) }
+            is Score -> {
+                if (event.type.requiresPlayer)
+                    playerLabel(team = team, playerId = event.playerId)
+                else
+                    "No player assigned"
+            }
             is Substitution -> {
                 "${playerLabel(team, event.playerOffId)} off, " +
                 "${playerLabel(team, event.playerOnId)} on " +
@@ -329,8 +334,12 @@ class TeamPdfExporter {
         )
     }
 
-    private fun playerLabel(team: Team, playerId: PlayerId): String
+    private fun playerLabel(team: Team, playerId: PlayerId?): String
     {
+        if (playerId == null) {
+            return "-"
+        }
+
         return team.players
             .find { it.id == playerId }
             ?.let { "${it.number}. " + it.name.ifBlank { "(Unnamed)" } }

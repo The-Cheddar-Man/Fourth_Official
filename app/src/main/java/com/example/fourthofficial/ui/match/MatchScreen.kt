@@ -153,8 +153,23 @@ fun MatchScreen(
                 teamName = selectedTeamName(state.teamId),
                 playerName = selectedPlayer(state.teamId, state.playerId),
                 onConfirm = { scoreType ->
-                    vm.recordScore(
-                        state.teamId, state.playerId, scoreType, state.eventTimeMs, state.halfIndex)
+                    val playerId =
+                        if (scoreType.requiresPlayer)
+                            state.playerId
+                        else
+                            null
+
+                    val recorded = vm.recordScore(
+                        teamId = state.teamId,
+                        playerId = playerId,
+                        scoreType = scoreType,
+                        eventTimeMs = state.eventTimeMs,
+                        halfIndex = state.halfIndex
+                    )
+
+                    if (recorded) {
+                        dismissDialogue()
+                    }
                     dismissDialogue()
                 },
                 onDismiss = dismissDialogue

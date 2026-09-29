@@ -298,10 +298,22 @@ class MatchViewModel : ViewModel() {
     //==================
 
     //region Score
-    fun recordScore(teamId: TeamId, playerId: PlayerId, scoreType: ScoreType,
-                    eventTimeMs: Long, halfIndex: Int) {
-        val playerState = getPlayerState(teamId, playerId) ?: return
-        if (!canActOnPlayer(playerState)) return
+    fun recordScore(teamId: TeamId, playerId: PlayerId?, scoreType: ScoreType,
+                    eventTimeMs: Long, halfIndex: Int) : Boolean {
+        if (!isActiveHalf(phase)) { return false }
+
+        val scoringPlayerId =
+            if (scoreType.requiresPlayer)
+                playerId ?: return false
+            else
+                null
+
+        if (scoringPlayerId != null) {
+            val playerState = getPlayerState(teamId, scoringPlayerId) ?: return false
+
+            if (!canActOnPlayer(playerState))
+                return false
+        }
 
         val score = Score(
             timeMs = eventTimeMs,
@@ -312,11 +324,12 @@ class MatchViewModel : ViewModel() {
         )
 
         addEvent(score)
+        return true
     }
 
     fun updateScore(
         eventId: EventId,
-        playerId: PlayerId,
+        playerId: PlayerId?,
         scoreType: ScoreType,
         timeMs: Long
     ): EventEditResult {
@@ -331,9 +344,22 @@ class MatchViewModel : ViewModel() {
             )
         }
 
-        if (team.players.none { it.id == playerId }) {
-            return EventEditResult.Failure("Selected player is not part of this team.")
+        if (scoreType.requiresPlayer) {
+            val scoringPlayerId = playerId ?: return EventEditResult.Failure(
+                "A player is required for ${scoreType.label}."
+            )
+
+            if (team.players.none { it.id == scoringPlayerId }) {
+                return EventEditResult.Failure("Selected player is not part of this team.")
+            }
         }
+
+        else if (playerId != null) {
+            return EventEditResult.Failure(
+                "${scoreType.label} must not be assigned to a player."
+            )
+        }
+
         if (timeMs < 0L) {
             return EventEditResult.Failure("Time cannot be negative.")
         }

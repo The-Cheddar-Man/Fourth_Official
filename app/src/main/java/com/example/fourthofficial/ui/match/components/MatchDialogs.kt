@@ -120,7 +120,11 @@ fun ScoreDialogue(
 
     SingleChoiceDialog(
         title = "Scoring",
-        prompt = "$playerName ($teamName) scored:",
+        prompt =
+            if (selected == ScoreType.PENALTY_TRY)
+                "Penalty try for $teamName. No player will be assigned."
+            else
+                "$playerName ($teamName) scored:",
         options = ScoreType.entries,
         selected = selected,
         optionLabel = { it.label },

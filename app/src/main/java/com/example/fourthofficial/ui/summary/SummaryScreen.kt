@@ -620,7 +620,10 @@ private fun switchTeams(index: Int) =
 private fun switchHalf(index: Int) =
     if (index == 1) 2 else 1
 
-private fun playerLabel(team: Team, playerId: PlayerId): String {
+private fun playerLabel(team: Team, playerId: PlayerId?): String {
+    if (playerId == null) {
+        return "-"
+    }
     return team.players
         .find { it.id == playerId }
         ?.let { "${it.number}. ${it.name.ifBlank { "(Unnamed)" }}" }

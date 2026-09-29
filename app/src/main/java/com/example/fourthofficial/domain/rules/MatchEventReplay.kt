@@ -56,21 +56,37 @@ fun replayMatchEvents(
 
         when (event) {
             is Score -> {
-                val state = teamStates[event.playerId] ?:
+                if (event.type.requiresPlayer && event.playerId == null) {
                     return MatchEventReplayResult.Failure(
                         eventId = event.id,
-                        message = "Score refers to a player who is not in this team.")
-
-                val unavailableReason = playerUnavailableReason(
-                    state = state,
-                    playingTimeMs = playingTimeMs
-                )
-
-                if (unavailableReason != null) {
-                    return MatchEventReplayResult.Failure(
-                        eventId = event.id,
-                        message = "Scoring player $unavailableReason at this time."
+                        message = "${event.type.label} must be attributed to a player."
                     )
+                }
+
+                if (!event.type.requiresPlayer && event.playerId != null) {
+                    return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "${event.type.label} must not be attributed to a player."
+                    )
+                }
+
+                if (event.playerId != null) {
+                    val state = teamStates[event.playerId] ?: return MatchEventReplayResult.Failure(
+                        eventId = event.id,
+                        message = "Score refers to a player who is not in this team."
+                    )
+
+                    val unavailableReason = playerUnavailableReason(
+                        state = state,
+                        playingTimeMs = playingTimeMs
+                    )
+
+                    if (unavailableReason != null) {
+                        return MatchEventReplayResult.Failure(
+                            eventId = event.id,
+                            message = "Scoring player $unavailableReason at this time."
+                        )
+                    }
                 }
             }
 

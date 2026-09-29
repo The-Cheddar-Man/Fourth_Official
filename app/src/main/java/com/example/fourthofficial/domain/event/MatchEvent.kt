@@ -16,7 +16,7 @@ data class Score(
     override val timeMs: Long,
     override val teamId: TeamId,
     override val halfIndex: Int,
-    val playerId: PlayerId,
+    val playerId: PlayerId?,
     val type: ScoreType
 ) : MatchEvent
 

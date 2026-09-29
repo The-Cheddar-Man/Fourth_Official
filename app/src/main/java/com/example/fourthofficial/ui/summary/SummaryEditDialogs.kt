@@ -50,7 +50,7 @@ fun EditScoreDialog(
     minTimeMs: Long = 0L,
     maxTimeMs: Long?,
     errorMessage: String?,
-    onSave: (playerId: PlayerId, type: ScoreType, timeMs: Long) -> Unit,
+    onSave: (playerId: PlayerId?, type: ScoreType, timeMs: Long) -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -63,6 +63,8 @@ fun EditScoreDialog(
     val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
     val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
     val selectedPlayer = players.find { it.id == selectedPlayerId }
+    val playerIsValid = !selectedType.requiresPlayer || selectedPlayerId != null
+    val canSave = timeIsValid && playerIsValid
 
     if (showDeleteConfirmation) {
         AppAlertDialog(
@@ -108,15 +110,26 @@ fun EditScoreDialog(
                     value = selectedType.label,
                     options = ScoreType.entries,
                     optionLabel = { it.label },
-                    onSelected = { selectedType = it }
+                    onSelected = {
+                        newType -> selectedType = newType
+
+                        if (!newType.requiresPlayer) {
+                            selectedPlayerId = null
+                        }
+                    }
                 )
 
                 SelectionField(
                     label = "Player",
-                    value = selectedPlayer?.let(::playerLabel) ?: "Unknown player",
+                    value =
+                        if (selectedType.requiresPlayer)
+                            selectedPlayer?.let(::playerLabel) ?: "Select player"
+                        else
+                            "No player for penalty try",
                     options = players.sortedBy { it.number },
                     optionLabel = ::playerLabel,
-                    onSelected = { selectedPlayerId = it.id }
+                    onSelected = { selectedPlayerId = it.id },
+                    enabled = selectedType.requiresPlayer
                 )
 
                 MatchTimeField(
@@ -161,14 +174,19 @@ fun EditScoreDialog(
                 Button(
                     onClick = {
                         val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+                        val savedPlayerId =
+                            if (selectedType.requiresPlayer)
+                                selectedPlayerId ?: return@Button
+                            else
+                                null
 
                         onSave(
-                            selectedPlayerId,
+                            savedPlayerId,
                             selectedType,
                             timeMs
                         )
                     },
-                    enabled = timeIsValid,
+                    enabled = canSave,
                     shape = AppButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
@@ -523,7 +541,8 @@ private fun <T> SelectionField(
     value: String,
     options: List<T>,
     optionLabel: (T) -> String,
-    onSelected: (T) -> Unit
+    onSelected: (T) -> Unit,
+    enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -541,11 +560,19 @@ private fun <T> SelectionField(
             modifier = Modifier.fillMaxWidth()
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
+                color =
+                    if (enabled) MaterialTheme.colorScheme.surface
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                contentColor =
+                    if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                 shape = MaterialTheme.shapes.small,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                modifier = Modifier.fillMaxWidth().clickable { expanded = true }
+                border = BorderStroke(
+                    1.dp,
+                    if (enabled) MaterialTheme.colorScheme.outline
+                    else MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { expanded = true }
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -559,17 +586,18 @@ private fun <T> SelectionField(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-
-                    Text(
-                        text = "▾",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (enabled) {
+                        Text(
+                            text = "▾",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
             DropdownMenu(
-                expanded = expanded,
+                expanded = expanded && enabled,
                 onDismissRequest = { expanded = false }
             ) {
                 options.forEach { option ->
