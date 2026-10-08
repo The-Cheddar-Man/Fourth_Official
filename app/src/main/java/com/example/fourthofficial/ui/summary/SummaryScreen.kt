@@ -1,6 +1,5 @@
 package com.example.fourthofficial.ui.summary
 
-import com.example.fourthofficial.export.PdfMatchPeriod
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +39,7 @@ import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.team.Team
 import com.example.fourthofficial.export.PdfEventType
+import com.example.fourthofficial.export.PdfMatchPeriod
 import com.example.fourthofficial.export.TeamPdfExportOptions
 import com.example.fourthofficial.export.TeamPdfExporter
 import com.example.fourthofficial.ui.common.DataTable

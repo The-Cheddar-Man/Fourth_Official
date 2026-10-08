@@ -55,20 +55,3 @@ val OnRedCard = Color.White
 val DestructiveRed = Color(0xFFC93636)
 
 val SuccessGreen = Color(0xFF3F8F68)
-
-// Substitution colours
-val SubPairBlue = Color(0xFF5A7DCE)
-val SubPairPurple = Color(0xFF9B6FD3)
-val SubPairTeal = Color(0xFF4CA6A8)
-val SubPairPink = Color(0xFFC66FA3)
-val SubPairCyan = Color(0xFF4F9FCF)
-val SubPairIndigo = Color(0xFF7276C8)
-
-val SubstitutionPairColors = listOf(
-    SubPairBlue,
-    SubPairPurple,
-    SubPairTeal,
-    SubPairPink,
-    SubPairCyan,
-    SubPairIndigo
-)

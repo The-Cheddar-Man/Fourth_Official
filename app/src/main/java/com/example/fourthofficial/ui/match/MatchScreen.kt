@@ -60,21 +60,11 @@ fun MatchScreen(
             SubstitutionPreparationContent(
                 vm = vm,
                 teamId = currentUiState.teamId,
-                preparationState = currentUiState.preparationState,
-                onPreparationStateChange = { preparationState ->
-                    uiState = MatchScreenUiState.PreparingSubstitutions(
-                        teamId = currentUiState.teamId,
-                        preparationState = preparationState
-                    )
-                },
+                initialReplacementPlayerOffId = currentUiState.initialReplacementPlayerOffId,
                 onReturnToMatch = {
                     if (vm.getPreparedSubstitutions(currentUiState.teamId).isEmpty()) {
                         vm.cancelPreparedSubstitutionBatch(currentUiState.teamId)
                     }
-                    uiState = MatchScreenUiState.None
-                                  },
-                onDiscard = {
-                    vm.cancelPreparedSubstitutionBatch(currentUiState.teamId)
                     uiState = MatchScreenUiState.None
                 }
             )
@@ -96,16 +86,12 @@ fun MatchScreen(
 
                     uiState = MatchScreenUiState.PreparingSubstitutions(
                             teamId = teamId,
-                            preparationState = SubstitutionPreparationUiState.AssignSubstitutions(
-                                initialReplacementPlayerOffId = playerId)
+                            initialReplacementPlayerOffId = playerId
                         )
                 },
 
                 onPreparedSubstitutionsTapped = { teamId ->
-                    uiState = MatchScreenUiState.PreparingSubstitutions(
-                            teamId = teamId,
-                            preparationState = SubstitutionPreparationUiState.SelectPlayers
-                        )
+                    uiState = MatchScreenUiState.PreparingSubstitutions(teamId = teamId)
                 }
             )
         }
@@ -133,8 +119,7 @@ fun MatchScreen(
 
                     uiState = MatchScreenUiState.PreparingSubstitutions(
                         teamId = state.teamId,
-                        preparationState = SubstitutionPreparationUiState.AssignSubstitutions(
-                            initialReplacementPlayerOffId = state.playerId)
+                        initialReplacementPlayerOffId = state.playerId
                     )
                 },
                 onDiscipline = {

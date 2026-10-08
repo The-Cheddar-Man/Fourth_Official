@@ -38,6 +38,7 @@ import com.example.fourthofficial.domain.team.Team
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerRule
 import com.example.fourthofficial.domain.rules.hasReachedHalfDuration as hasReachedHalfDurationRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
@@ -170,33 +171,6 @@ class MatchViewModel : ViewModel() {
                 totalElapsedMs = clock.totalElapsedMs,
                 alreadyUsed = player.id in usedPlayerOnIds,
                 canReturn = canReturn
-            )
-        }
-    }
-
-    fun eligiblePlayersOff(teamId: TeamId): List<Player> {
-        if (!isActiveHalf(phase)) return emptyList()
-
-        val team = when (teamId) {
-            team1.id -> team1
-            team2.id -> team2
-            else -> return emptyList()
-        }
-
-        val usedPlayerOffIds = getPreparedSubstitutionBatch(teamId)
-            ?.substitutions
-            ?.map { it.playerOffId }
-            ?.toSet()
-            ?: emptySet()
-
-        return team.players.filter { player ->
-            val state = getPlayerState(teamId, player.id)
-                ?: return@filter false
-
-            canSubstituteOff(
-                state = state,
-                totalElapsedMs = clock.totalElapsedMs,
-                alreadyUsed = player.id in usedPlayerOffIds
             )
         }
     }
@@ -416,15 +390,15 @@ class MatchViewModel : ViewModel() {
         val halfIndex = currentHalf
         val newEvents = mutableListOf<Substitution>()
 
-        for (substitution in batch.substitutions) {
-            val playerOnId = substitution.playerOnId ?: return
-            val type = substitution.type ?: return
+        for ((playerOffId, playerOnId1, type1) in batch.substitutions) {
+            val playerOnId = playerOnId1 ?: return
+            val type = type1 ?: return
 
             newEvents += Substitution(
                 timeMs = timeMs,
                 teamId = teamId,
                 halfIndex = halfIndex,
-                playerOffId = substitution.playerOffId,
+                playerOffId = playerOffId,
                 playerOnId = playerOnId,
                 type = type
             )
@@ -851,7 +825,7 @@ class MatchViewModel : ViewModel() {
                     )
                 )
 
-                delay(100)
+                delay(100.milliseconds)
             }
         }
     }
