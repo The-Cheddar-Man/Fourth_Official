@@ -32,13 +32,26 @@ fun replayMatchEvents(
     val appliedSubstitutions = mutableListOf<Substitution>()
     val appliedDisciplines = mutableListOf<Discipline>()
 
-    val orderedEvents =
-        events
-            .withIndex()
-            .sortedWith(compareBy<IndexedValue<MatchEvent>> {
-                it.value.halfIndex }.thenBy { it.value.timeMs }.thenBy { it.index })
+    val orderedEvents = events.withIndex().sortedWith(
+        compareBy<IndexedValue<MatchEvent>> { it.value.halfIndex }
+                .thenBy { it.value.timeMs }
+                .thenBy {
+                    val event = it.value
+                    if (event is Substitution && event.occurredAtHalfTime) { 0 } else { 1 }
+                }
+                .thenBy { it.index }
+        )
 
     for ((originalIndex, event) in orderedEvents) {
+        if (event is Substitution && event.occurredAtHalfTime &&
+            (event.halfIndex != 2 || event.timeMs != halfDurationMs))
+        {
+            return MatchEventReplayResult.Failure(
+                eventId = event.id,
+                message = "Half-time substitution has an invalid match time."
+            )
+        }
+
         val playingTimeMs =
             eventPlayingTimeMs(
                 event = event,

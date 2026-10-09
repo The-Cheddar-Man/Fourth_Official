@@ -27,7 +27,8 @@ data class Substitution(
     override val halfIndex: Int,
     val playerOffId : PlayerId,
     val playerOnId : PlayerId,
-    val type: SubstitutionType
+    val type: SubstitutionType,
+    val occurredAtHalfTime: Boolean = false
 ) : MatchEvent
 
 data class Discipline(

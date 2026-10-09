@@ -206,7 +206,9 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
 
         val events = vm.subEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs / 1000L}
+            .sortedWith(compareBy<Substitution> { it.timeMs / 1000L }.thenBy {
+                if (it.occurredAtHalfTime) { 0 } else { 1 }
+            })
 
         val columns = listOf(
             TableColumn(header = "Off", weight = 1.5f) { e ->
@@ -218,8 +220,12 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
             TableColumn(header = "On", weight = 1.5f) { e ->
                 playerLabel(team, e.playerOnId)
             },
-            TableColumn<Substitution>(header = "Time", weight = 0.8f) { e ->
-                vm.formatClock(e.timeMs, false)
+            TableColumn<Substitution>(header = "Time", weight = 1.1f) { e ->
+                if (e.occurredAtHalfTime) {
+                    "Half Time"
+                } else {
+                    vm.formatClock(e.timeMs, false)
+                }
             }
         )
 
@@ -241,15 +247,18 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                 event = substitutionToEdit,
                 players = team.players,
                 initialTimeText = vm.formatClock(substitutionToEdit.timeMs, false),
-                minTimeMs = if (substitutionToEdit.halfIndex == 2) { vm.halfDurationMs } else { 0L },
-                maxTimeMs = vm.maxEditableEventTimeMs(substitutionToEdit.halfIndex),
+                availablePeriods = vm.availableSubstitutionEditPeriods(),
+                halfDurationMs = vm.halfDurationMs,
+                firstHalfMaxTimeMs = vm.maxEditableEventTimeMs(1),
+                secondHalfMaxTimeMs = vm.maxEditableEventTimeMs(2),
                 errorMessage = editError,
-                onSave = { playerOffId, playerOnId, type, timeMs ->
+                onSave = { playerOffId, playerOnId, type, period, timeMs ->
                     when (val result = vm.updateSubstitution(
                         eventId = substitutionToEdit.id,
                         playerOffId = playerOffId,
                         playerOnId = playerOnId,
                         type = type,
+                        period = period,
                         timeMs = timeMs)
                     ) {
                         EventEditResult.Success -> {

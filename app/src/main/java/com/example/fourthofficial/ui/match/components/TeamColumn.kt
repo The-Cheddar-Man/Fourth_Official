@@ -74,7 +74,7 @@ fun TeamColumn(
         ) {
             items(onField.size) { i ->
                 val (player, state) = onField[i]
-                val locked = !vm.canActOnPlayer(state)
+                val locked = !vm.canActOnPlayer(state) && !vm.canPrepareSubstitution(state)
                 val tileContentColor = when {
                     state.isRedCarded -> OnRedCard
                     vm.isYellowActive(state) -> OnYellowCard

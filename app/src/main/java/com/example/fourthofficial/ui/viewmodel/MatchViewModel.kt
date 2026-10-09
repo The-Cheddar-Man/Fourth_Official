@@ -24,6 +24,7 @@ import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.match.PreparedSubstitutionBatch
+import com.example.fourthofficial.domain.rules.allowsSubstitutions
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.rules.MatchEventReplayResult
 import com.example.fourthofficial.domain.rules.calculateScore
@@ -148,8 +149,12 @@ class MatchViewModel : ViewModel() {
         return canActOnPlayerRule(state = state, phase = phase, clock = clock)
     }
 
+    fun canPrepareSubstitution(state: MatchPlayerState): Boolean {
+        return allowsSubstitutions(phase) && canSubstituteOff(state = state, totalElapsedMs = clock.totalElapsedMs)
+    }
+
     fun eligiblePlayersOn(teamId: TeamId): List<Player> {
-        if (!isActiveHalf(phase)) return emptyList()
+        if (!allowsSubstitutions(phase)) return emptyList()
 
         val team = when (teamId) {
             team1.id -> team1
@@ -373,6 +378,7 @@ class MatchViewModel : ViewModel() {
     //region Subs
 
     fun startPreparedSubstitutionBatch(teamId: TeamId) {
+        if (!allowsSubstitutions(phase)) return
         if (getPreparedSubstitutionBatch(teamId) != null) return
 
         matchState = matchState.copy(
@@ -382,12 +388,13 @@ class MatchViewModel : ViewModel() {
     }
 
     fun applyPreparedSubstitutionBatch(teamId: TeamId) {
-        if (!isActiveHalf(phase)) return
+        if (!allowsSubstitutions(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.isEmpty()) return
         if (batch.substitutions.any { it.playerOnId == null || it.type == null }) return
         val timeMs = displayElapsedMs
-        val halfIndex = currentHalf
+        val halfIndex = currentSubstitutionHalf
+        val occurredAtHalfTime = phase == MatchPhase.HALF_TIME
         val newEvents = mutableListOf<Substitution>()
 
         for ((playerOffId, playerOnId1, type1) in batch.substitutions) {
@@ -400,7 +407,8 @@ class MatchViewModel : ViewModel() {
                 halfIndex = halfIndex,
                 playerOffId = playerOffId,
                 playerOnId = playerOnId,
-                type = type
+                type = type,
+                occurredAtHalfTime = occurredAtHalfTime
             )
         }
 
@@ -414,7 +422,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun applyPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId): EventEditResult {
-        if (!isActiveHalf(phase)) {
+        if (!allowsSubstitutions(phase)) {
             return EventEditResult.Failure("A substitution can only be submitted during a half.")
         }
 
@@ -434,10 +442,11 @@ class MatchViewModel : ViewModel() {
             Substitution(
                 timeMs = displayElapsedMs,
                 teamId = teamId,
-                halfIndex = currentHalf,
+                halfIndex = currentSubstitutionHalf,
                 playerOffId = playerOffId,
                 playerOnId = playerOnId,
-                type = type
+                type = type,
+                occurredAtHalfTime = phase == MatchPhase.HALF_TIME
             )
 
         return when (
@@ -449,7 +458,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun addPreparedSubstitution(teamId: TeamId, playerOffId: PlayerId) {
-        if (!isActiveHalf(phase)) return
+        if (!allowsSubstitutions(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (batch.substitutions.any { it.playerOffId == playerOffId }) return
 
@@ -469,7 +478,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun setPreparedSubstitutionPlayerOn(teamId: TeamId, playerOffId: PlayerId, playerOnId: PlayerId) {
-        if (!isActiveHalf(phase)) return
+        if (!allowsSubstitutions(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId)  ?: return
         if (playerOffId == playerOnId) return
 
@@ -512,7 +521,7 @@ class MatchViewModel : ViewModel() {
     }
 
     fun setPreparedSubstitutionType(teamId: TeamId, playerOffId: PlayerId, type: SubstitutionType) {
-        if (!isActiveHalf(phase)) return
+        if (!allowsSubstitutions(phase)) return
         val batch = getPreparedSubstitutionBatch(teamId) ?: return
         if (batch.substitutions.none { it.playerOffId == playerOffId }) return
 
@@ -610,60 +619,107 @@ class MatchViewModel : ViewModel() {
         matchState = matchState.copy(preparedSubstitutionBatches = reconciledBatches)
     }
 
-    fun updateSubstitution(eventId: EventId, playerOffId: PlayerId,
-                           playerOnId: PlayerId, type: SubstitutionType,
-                           timeMs: Long): EventEditResult
+    fun availableSubstitutionEditPeriods(): List<MatchPhase> {
+        return when (phase) {
+            MatchPhase.NOT_STARTED -> emptyList()
+            MatchPhase.FIRST_HALF -> listOf(MatchPhase.FIRST_HALF)
+            MatchPhase.HALF_TIME -> listOf(MatchPhase.FIRST_HALF, MatchPhase.HALF_TIME)
+
+            MatchPhase.SECOND_HALF,
+            MatchPhase.FINISHED ->
+                listOf(MatchPhase.FIRST_HALF, MatchPhase.HALF_TIME, MatchPhase.SECOND_HALF)
+        }
+    }
+
+    fun updateSubstitution(eventId: EventId, playerOffId: PlayerId, playerOnId: PlayerId,
+                           type: SubstitutionType, period: MatchPhase, timeMs: Long): EventEditResult
     {
         val existingSubstitution = subEvents.find { event -> event.id == eventId } ?:
-        return EventEditResult.Failure("Substitution event could not be found.")
+            return EventEditResult.Failure("Substitution event could not be found.")
 
         val team = when (existingSubstitution.teamId) {
-                team1.id -> team1
-                team2.id -> team2
-                else -> return EventEditResult.Failure(
-                    "Substitution refers to an unknown team."
-                )
-            }
-
-        if (team.players.none { it.id == playerOffId })
-        {
-            return EventEditResult.Failure(
-                "Outgoing player is not part of this team."
-            )
+            team1.id -> team1
+            team2.id -> team2
+            else -> return EventEditResult.Failure("Substitution refers to an unknown team.")
         }
 
-        if (team.players.none { it.id == playerOnId })
-        {
-            return EventEditResult.Failure(
-                "Incoming player is not part of this team."
-            )
+        if (team.players.none { it.id == playerOffId }) {
+            return EventEditResult.Failure("Outgoing player is not part of this team.")
+        }
+
+        if (team.players.none { it.id == playerOnId }) {
+            return EventEditResult.Failure("Incoming player is not part of this team.")
         }
 
         if (playerOffId == playerOnId) {
             return EventEditResult.Failure("A player cannot substitute for themselves.")
         }
-        if (timeMs < 0L) {
+
+        if (period !in availableSubstitutionEditPeriods()) {
+            return EventEditResult.Failure("The substitution cannot be moved to that match period yet.")
+        }
+
+        val updatedHalfIndex: Int
+        val updatedTimeMs: Long
+        val occurredAtHalfTime: Boolean
+
+        when (period) {
+            MatchPhase.FIRST_HALF -> {
+                updatedHalfIndex = 1
+                updatedTimeMs = timeMs
+                occurredAtHalfTime = false
+            }
+
+            MatchPhase.HALF_TIME -> {
+                updatedHalfIndex = 2
+                updatedTimeMs = halfDurationMs
+                occurredAtHalfTime = true
+            }
+
+            MatchPhase.SECOND_HALF -> {
+                updatedHalfIndex = 2
+                updatedTimeMs = timeMs
+                occurredAtHalfTime = false
+            }
+
+            MatchPhase.NOT_STARTED,
+            MatchPhase.FINISHED -> { return EventEditResult.Failure("Invalid substitution period.") }
+        }
+
+        if (updatedTimeMs < 0L) {
             return EventEditResult.Failure("Time cannot be negative.")
         }
-        val maxTimeMs = maxEditableEventTimeMs(existingSubstitution.halfIndex)
-        if ( maxTimeMs != null && timeMs > maxTimeMs) {
+
+        if (period == MatchPhase.SECOND_HALF && updatedTimeMs < halfDurationMs) {
+            return EventEditResult.Failure("Time cannot be earlier than the start of the second half.")
+        }
+
+        val maxTimeMs = when (period) {
+            MatchPhase.FIRST_HALF -> maxEditableEventTimeMs(1)
+            MatchPhase.HALF_TIME -> halfDurationMs
+            MatchPhase.SECOND_HALF -> maxEditableEventTimeMs(2)
+        }
+
+        if (maxTimeMs != null && updatedTimeMs > maxTimeMs) {
             return EventEditResult.Failure("Time cannot be later than the current match clock.")
         }
 
         val updatedSubstitution = existingSubstitution.copy(
-            playerOffId = playerOffId,
-            playerOnId = playerOnId,
-            type = type,
-            timeMs = timeMs
-        )
+                playerOffId = playerOffId,
+                playerOnId = playerOnId,
+                type = type,
+                halfIndex = updatedHalfIndex,
+                timeMs = updatedTimeMs,
+                occurredAtHalfTime = occurredAtHalfTime
+            )
 
         val candidateEvents = matchState.events.map { event ->
-            if (event.id == eventId) {
-                updatedSubstitution
-            } else {
-                event
+                if (event.id == eventId) {
+                    updatedSubstitution
+                } else {
+                    event
+                }
             }
-        }
 
         return commitEventEdit(candidateEvents)
     }
@@ -790,6 +846,17 @@ class MatchViewModel : ViewModel() {
             MatchPhase.FIRST_HALF -> 1
             MatchPhase.SECOND_HALF -> 2
             else -> 0
+        }
+
+    private val currentSubstitutionHalf: Int
+        get() = when (phase) {
+            MatchPhase.FIRST_HALF -> 1
+
+            MatchPhase.HALF_TIME,
+            MatchPhase.SECOND_HALF -> 2
+
+            MatchPhase.NOT_STARTED,
+            MatchPhase.FINISHED -> 0
         }
 
     val halfRemainingMs: Long

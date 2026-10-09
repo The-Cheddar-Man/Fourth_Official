@@ -41,6 +41,7 @@ import com.example.fourthofficial.domain.id.PlayerId
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.ui.common.AppAlertDialog
 import com.example.fourthofficial.ui.theme.AppButtonShape
+import com.example.fourthofficial.domain.match.MatchPhase
 
 @Composable
 fun EditScoreDialog(
@@ -202,23 +203,46 @@ fun EditSubstitutionDialog(
     event: Substitution,
     players: List<Player>,
     initialTimeText: String,
-    minTimeMs: Long = 0L,
-    maxTimeMs: Long?,
+    availablePeriods: List<MatchPhase>,
+    halfDurationMs: Long,
+    firstHalfMaxTimeMs: Long?,
+    secondHalfMaxTimeMs: Long?,
     errorMessage: String?,
-    onSave: (playerOffId: PlayerId, playerOnId: PlayerId, type: SubstitutionType, timeMs: Long) -> Unit,
+    onSave: (
+        playerOffId: PlayerId,
+        playerOnId: PlayerId,
+        type: SubstitutionType,
+        period: MatchPhase,
+        timeMs: Long
+    ) -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val initialPeriod = when {
+        event.occurredAtHalfTime -> MatchPhase.HALF_TIME
+        event.halfIndex == 1 -> MatchPhase.FIRST_HALF
+        else -> MatchPhase.SECOND_HALF
+    }
+    var selectedPeriod by remember(event.id.value) { mutableStateOf(initialPeriod) }
     var selectedPlayerOffId by remember(event.id.value) { mutableStateOf(event.playerOffId) }
     var selectedPlayerOnId by remember(event.id.value) { mutableStateOf(event.playerOnId) }
     var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
     var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
     var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
     val parsedTimeMs = parseMatchTime(timeText)
-    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
-    val playersAreDifferent = selectedPlayerOffId != selectedPlayerOnId
+    val minTimeMs = if (selectedPeriod == MatchPhase.SECOND_HALF) { halfDurationMs } else { 0L }
+    val maxTimeMs = when (selectedPeriod) {
+        MatchPhase.FIRST_HALF -> firstHalfMaxTimeMs
+        MatchPhase.HALF_TIME -> halfDurationMs
+        MatchPhase.SECOND_HALF -> secondHalfMaxTimeMs
+        MatchPhase.NOT_STARTED,
+        MatchPhase.FINISHED -> 0L
+    }
     val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
-    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val numericTimeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
+    val timeIsValid = selectedPeriod == MatchPhase.HALF_TIME || numericTimeIsValid
+    val playersAreDifferent = selectedPlayerOffId != selectedPlayerOnId
     val canSave = timeIsValid && playersAreDifferent
     val selectedPlayerOff = players.find { it.id == selectedPlayerOffId }
     val selectedPlayerOn = players.find { it.id == selectedPlayerOnId }
@@ -290,13 +314,51 @@ fun EditSubstitutionDialog(
                     onSelected = { selectedPlayerOnId = it.id }
                 )
 
-                MatchTimeField(
-                    value = timeText,
-                    onValueChange = { timeText = it },
-                    parsedTimeMs = parsedTimeMs,
-                    timeIsBeforeHalf = timeIsBeforeHalf,
-                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
+                SelectionField(
+                    label = "Period",
+                    value = substitutionPeriodLabel(selectedPeriod),
+                    options = availablePeriods,
+                    optionLabel = ::substitutionPeriodLabel,
+                    onSelected = { newPeriod ->
+                        selectedPeriod = newPeriod
+
+                        when (newPeriod) {
+                            MatchPhase.FIRST_HALF -> {
+                                firstHalfMaxTimeMs?.let { maxTimeMs ->
+                                    timeText = formatMatchTimeInput(maxTimeMs)
+                                }
+                            }
+
+                            MatchPhase.SECOND_HALF -> {
+                                timeText = formatMatchTimeInput(halfDurationMs)
+                            }
+
+                            MatchPhase.HALF_TIME,
+                            MatchPhase.NOT_STARTED,
+                            MatchPhase.FINISHED -> Unit
+                        }
+                    }
                 )
+
+                if (selectedPeriod == MatchPhase.HALF_TIME) {
+                    OutlinedTextField(
+                        value = "Half Time",
+                        onValueChange = {},
+                        enabled = false,
+                        singleLine = true,
+                        label = { Text("Match Time") },
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    MatchTimeField(
+                        value = timeText,
+                        onValueChange = { timeText = it },
+                        parsedTimeMs = parsedTimeMs,
+                        timeIsBeforeHalf = timeIsBeforeHalf,
+                        timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
+                    )
+                }
 
                 if (!playersAreDifferent) {
                     Text(
@@ -339,18 +401,23 @@ fun EditSubstitutionDialog(
                 Button(
                     enabled = canSave,
                     onClick = {
-                        val timeMs = parsedTimeMs?.takeIf { canSave } ?: return@Button
                         val savedTimeMs =
-                            if (timeMs / 1000L == event.timeMs / 1000L) {
-                                event.timeMs
+                            if (selectedPeriod == MatchPhase.HALF_TIME) {
+                                halfDurationMs
                             } else {
-                                timeMs
+                                val timeMs = parsedTimeMs?.takeIf { numericTimeIsValid } ?: return@Button
+                                if (selectedPeriod == initialPeriod && timeMs / 1000L == event.timeMs / 1000L) {
+                                    event.timeMs
+                                } else {
+                                    timeMs
+                                }
                             }
 
                         onSave(
                             selectedPlayerOffId,
                             selectedPlayerOnId,
                             selectedType,
+                            selectedPeriod,
                             savedTimeMs
                         )
                     },
@@ -666,11 +733,29 @@ private fun MatchTimeField(
     }
 }
 
+private fun substitutionPeriodLabel(period: MatchPhase): String {
+    return when (period) {
+        MatchPhase.NOT_STARTED -> "Not Started"
+        MatchPhase.FIRST_HALF -> "First Half"
+        MatchPhase.HALF_TIME -> "Half Time"
+        MatchPhase.SECOND_HALF -> "Second Half"
+        MatchPhase.FINISHED -> "Finished"
+    }
+}
+
 private fun disciplineReasonsFor(type: DisciplineType): List<DisciplineReason> {
     return when (type) {
         DisciplineType.YELLOW -> DisciplineReasonYellow.entries
         DisciplineType.RED -> DisciplineReasonRed.entries
     }
+}
+
+private fun formatMatchTimeInput(timeMs: Long): String {
+    val totalSeconds = timeMs / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+
+    return "%02d:%02d".format(minutes, seconds)
 }
 
 private fun parseMatchTime(value: String): Long?

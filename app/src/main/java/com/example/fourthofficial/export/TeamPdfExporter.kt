@@ -132,8 +132,13 @@ class TeamPdfExporter {
             }
             .sortedWith(compareBy<IndexedValue<MatchEvent>> { it.value.halfIndex }
                 .thenBy { it.value.timeMs / 1000L }
+                .thenBy {
+                    val event = it.value
+                    if (event is Substitution && event.occurredAtHalfTime) { 0 } else { 1 }
+                }
                 .thenBy { it.index }
-            ).map { it.value }
+            )
+            .map { it.value }
     }
 
     private fun eventType(event: MatchEvent): PdfEventType
@@ -281,9 +286,12 @@ class TeamPdfExporter {
     {
         val rowHeight = calculateRowHeight(detailLines)
         val textY = y + ROW_VERTICAL_PADDING + 9f
+        val isHalfTimeSubstitution = event is Substitution && event.occurredAtHalfTime
+        val halfLabel = if (isHalfTimeSubstitution) { "HT" } else { "H${event.halfIndex}" }
+        val timeLabel = if (isHalfTimeSubstitution) { "—" } else { formatMatchTime(event.timeMs) }
 
-        canvas.drawText("H${event.halfIndex}", HALF_X, textY, bodyPaint())
-        canvas.drawText(formatMatchTime(event.timeMs), TIME_X, textY, bodyPaint())
+        canvas.drawText(halfLabel, HALF_X, textY, bodyPaint())
+        canvas.drawText(timeLabel, TIME_X, textY, bodyPaint())
         canvas.drawText(eventLabel(event), EVENT_X, textY, bodyBoldPaint())
 
         detailLines.forEachIndexed { index, line ->

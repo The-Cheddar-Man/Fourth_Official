@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.id.PlayerId
@@ -22,6 +25,7 @@ import com.example.fourthofficial.ui.match.components.MatchTeamColumns
 import com.example.fourthofficial.ui.match.components.ScoreDialogue
 import com.example.fourthofficial.ui.match.components.SubstitutionPreparationContent
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun MatchScreen(
@@ -46,6 +50,15 @@ fun MatchScreen(
         selectedTeam(teamId).players.find { it.id == playerId }?.name?.ifBlank { "(Unnamed)" }
             ?: "(Unnamed)"
     }
+    val openSubstitutionPreparation = { teamId: TeamId, playerId: PlayerId ->
+        vm.startPreparedSubstitutionBatch(teamId)
+        vm.addPreparedSubstitution(teamId = teamId, playerOffId = playerId)
+        uiState = MatchScreenUiState.PreparingSubstitutions(
+            teamId = teamId,
+            initialReplacementPlayerOffId = playerId
+        )
+    }
+    val coroutineScope = rememberCoroutineScope()
     //endregion
 
     MatchContent(
@@ -72,22 +85,23 @@ fun MatchScreen(
             MatchTeamColumns(
                 vm = vm,
                 onPlayerTapped = { teamId, playerId ->
-                    uiState = MatchScreenUiState.ActionMenu(
-                        teamId = teamId,
-                        playerId = playerId,
-                        eventTimeMs = vm.displayElapsedMs,
-                        halfIndex = vm.currentHalf
-                    )
+                    if (vm.phase == MatchPhase.HALF_TIME) {
+                        coroutineScope.launch {
+                            delay(25.milliseconds)
+                            openSubstitutionPreparation(teamId, playerId)
+                        }
+                    } else {
+                        uiState = MatchScreenUiState.ActionMenu(
+                            teamId = teamId,
+                            playerId = playerId,
+                            eventTimeMs = vm.displayElapsedMs,
+                            halfIndex = vm.currentHalf
+                        )
+                    }
                 },
 
                 onPlayerLongPressed = { teamId, playerId ->
-                    vm.startPreparedSubstitutionBatch(teamId)
-                    vm.addPreparedSubstitution(teamId = teamId, playerOffId = playerId)
-
-                    uiState = MatchScreenUiState.PreparingSubstitutions(
-                            teamId = teamId,
-                            initialReplacementPlayerOffId = playerId
-                        )
+                    openSubstitutionPreparation(teamId, playerId)
                 },
 
                 onPreparedSubstitutionsTapped = { teamId ->
@@ -114,12 +128,9 @@ fun MatchScreen(
                     )
                 },
                 onSubstitution = {
-                    vm.startPreparedSubstitutionBatch(state.teamId)
-                    vm.addPreparedSubstitution(state.teamId, state.playerId)
-
-                    uiState = MatchScreenUiState.PreparingSubstitutions(
-                        teamId = state.teamId,
-                        initialReplacementPlayerOffId = state.playerId
+                    openSubstitutionPreparation(
+                        state.teamId,
+                        state.playerId
                     )
                 },
                 onDiscipline = {
