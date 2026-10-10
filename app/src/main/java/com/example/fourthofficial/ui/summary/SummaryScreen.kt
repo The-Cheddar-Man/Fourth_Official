@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Tab
@@ -47,8 +47,11 @@ import com.example.fourthofficial.ui.common.TableColumn
 import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
-enum class SummaryTab {
-    Scores, Substitutions, Disciplines, Export
+enum class SummaryTab(val label: String) {
+    Scores("Scores"),
+    Substitutions("Substitutions"),
+    Discipline("Discipline"),
+    Export("Export")
 }
 
 @Composable
@@ -68,7 +71,8 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
                     onClick = { currentTab = tab },
                     text = {
                         Text(
-                            tab.name,
+                            text = tab.label,
+                            style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -97,7 +101,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
                 halfIndex = selectedHalf
             )
 
-            SummaryTab.Disciplines -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
+            SummaryTab.Discipline -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
             SummaryTab.Export -> ExportTab(vm = vm)
         }
     }
@@ -644,28 +648,28 @@ private fun SummaryFilters(
     onSwitchHalf: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(
+        OutlinedButton(
+            onClick = onSwitchTeam,
             modifier = Modifier.weight(1f),
-            contentAlignment = Alignment.Center
+            shape = AppButtonShape
         ) {
-            Button(onClick = onSwitchTeam, shape = AppButtonShape) {
-                Text(
-                    team.name.ifBlank {
-                        "Team ${team.index}"
-                    }
-                )
-            }
+            Text(text = team.name.ifBlank { "Team ${team.index}" },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
-        Box(
+        OutlinedButton(
+            onClick = onSwitchHalf,
             modifier = Modifier.weight(1f),
-            contentAlignment = Alignment.Center
+            shape = AppButtonShape
         ) {
-            Button(onClick = onSwitchHalf, shape = AppButtonShape) {
-                Text("Half $halfIndex")
-            }
+            Text(text = if (halfIndex == 1) { "First Half" } else { "Second Half" },
+                maxLines = 1
+            )
         }
     }
 }
