@@ -99,7 +99,7 @@ fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel, onShowMessa
                 team = team,
                 halfIndex = selectedHalf
             )
-            SummaryTab.Discipline -> DisciplinesTab(
+            SummaryTab.Discipline -> DisciplineTab(
                 modifier = Modifier.weight(1f),
                 vm = vm,
                 team = team,
@@ -128,7 +128,7 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
     ) {
         val events = vm.scoreEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs / 1000L}
+            .sortedBy { it.timeMs / 1000L }
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
@@ -148,9 +148,11 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
                 editError = null
                 selectedScore = score
             },
-            emptyMessage = "No scores recorded for " +
-                "${team.name.ifBlank { "Team ${team.index}" }} - " +
-                if (halfIndex == 1) { "First Half" } else { "Second Half" }
+            emptyMessage = summaryEmptyMessage(
+                eventLabel = "scores",
+                team = team,
+                halfIndex = halfIndex
+            )
         )
 
         val scoreToEdit = selectedScore
@@ -244,9 +246,11 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                 editError = null
                 selectedSubstitution = substitution
             },
-            emptyMessage = "No substitutions recorded for " +
-                "${team.name.ifBlank { "Team ${team.index}" }} - " +
-                if (halfIndex == 1) { "First Half" } else { "Second Half" }
+            emptyMessage = summaryEmptyMessage(
+                eventLabel = "substitutions",
+                team = team,
+                halfIndex = halfIndex
+            )
         )
 
         val substitutionToEdit = selectedSubstitution
@@ -285,17 +289,17 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
                     selectedSubstitution = null
                 },
 
-                onDelete = {when (val result = vm.deleteSubstitution(substitutionToEdit.id)
-                ) {
-                    EventEditResult.Success -> {
-                        editError = null
-                        selectedSubstitution = null
-                    }
+                onDelete = {
+                    when (val result = vm.deleteSubstitution(substitutionToEdit.id)) {
+                        EventEditResult.Success -> {
+                            editError = null
+                            selectedSubstitution = null
+                        }
 
-                    is EventEditResult.Failure -> {
-                        editError = result.message
+                        is EventEditResult.Failure -> {
+                            editError = result.message
+                        }
                     }
-                }
                 }
             )
         }
@@ -303,7 +307,7 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
 }
 
 @Composable
-private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
+private fun DisciplineTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: Team, halfIndex: Int) {
     var selectedDiscipline by remember { mutableStateOf<Discipline?>(null) }
     var editError by remember { mutableStateOf<String?>(null) }
     Column(
@@ -312,7 +316,7 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
     ) {
         val events = vm.discEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
-            .sortedBy { it.timeMs / 1000L}
+            .sortedBy { it.timeMs / 1000L }
 
         val columns = listOf(
             TableColumn(header = "Type", weight = 1.5f) { e ->
@@ -338,9 +342,11 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
                 editError = null
                 selectedDiscipline = discipline
             },
-            emptyMessage = "No discipline recorded for " +
-                "${team.name.ifBlank { "Team ${team.index}" }} - " +
-                if (halfIndex == 1) { "First Half" } else { "Second Half" }
+            emptyMessage = summaryEmptyMessage(
+                eventLabel = "discipline",
+                team = team,
+                halfIndex = halfIndex
+            )
         )
     }
 
@@ -819,6 +825,13 @@ private fun playerLabel(team: Team, playerId: PlayerId?): String {
         .find { it.id == playerId }
         ?.let { "${it.number}. ${it.name.ifBlank { "(Unnamed)" }}" }
         ?: "Unknown player"
+}
+
+private fun summaryEmptyMessage(eventLabel: String, team: Team, halfIndex: Int): String {
+    val teamLabel = team.name.ifBlank { "Team ${team.index}" }
+    val halfLabel = if (halfIndex == 1) "First Half" else "Second Half"
+
+    return "No $eventLabel recorded for $teamLabel - $halfLabel"
 }
 
 @SuppressLint("ViewModelConstructorInComposable")

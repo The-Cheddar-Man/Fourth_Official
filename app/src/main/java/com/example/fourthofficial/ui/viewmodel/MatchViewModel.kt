@@ -738,10 +738,10 @@ class MatchViewModel : ViewModel() {
     //endregion
 
     //==================
-    //   DISCIPLINES
+    //   DISCIPLINE
     //==================
 
-    //region Disciplines
+    //region Discipline
     fun recordDiscipline(teamId: TeamId, playerId: PlayerId, type: DisciplineType,
                          reason: DisciplineReason, eventTimeMs: Long, halfIndex: Int) : Boolean {
         val playerState = getPlayerState(teamId, playerId) ?: return false
