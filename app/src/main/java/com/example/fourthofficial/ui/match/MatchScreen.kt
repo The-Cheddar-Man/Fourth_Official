@@ -5,11 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.fourthofficial.domain.event.DisciplineType
 import com.example.fourthofficial.domain.id.PlayerId
@@ -25,6 +23,8 @@ import com.example.fourthofficial.ui.match.components.MatchTeamColumns
 import com.example.fourthofficial.ui.match.components.ScoreDialogue
 import com.example.fourthofficial.ui.match.components.SubstitutionPreparationContent
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable

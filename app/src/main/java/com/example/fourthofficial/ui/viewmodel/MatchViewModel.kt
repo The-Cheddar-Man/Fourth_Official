@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fourthofficial.BuildConfig
+import com.example.fourthofficial.dev.DevTestData
 import com.example.fourthofficial.domain.event.Discipline
 import com.example.fourthofficial.domain.event.DisciplineReason
 import com.example.fourthofficial.domain.event.DisciplineType
@@ -24,9 +26,9 @@ import com.example.fourthofficial.domain.match.MatchState
 import com.example.fourthofficial.domain.match.MatchTeamState
 import com.example.fourthofficial.domain.match.PreparedSubstitution
 import com.example.fourthofficial.domain.match.PreparedSubstitutionBatch
-import com.example.fourthofficial.domain.rules.allowsSubstitutions
 import com.example.fourthofficial.domain.rules.EventEditResult
 import com.example.fourthofficial.domain.rules.MatchEventReplayResult
+import com.example.fourthofficial.domain.rules.allowsSubstitutions
 import com.example.fourthofficial.domain.rules.calculateScore
 import com.example.fourthofficial.domain.rules.canReturn
 import com.example.fourthofficial.domain.rules.canSubstituteOff
@@ -44,8 +46,6 @@ import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerR
 import com.example.fourthofficial.domain.rules.hasReachedHalfDuration as hasReachedHalfDurationRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
 import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
-import com.example.fourthofficial.BuildConfig
-import com.example.fourthofficial.dev.DevTestData
 
 class MatchViewModel : ViewModel() {
 

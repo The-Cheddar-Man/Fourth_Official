@@ -38,10 +38,10 @@ import com.example.fourthofficial.domain.event.ScoreType
 import com.example.fourthofficial.domain.event.Substitution
 import com.example.fourthofficial.domain.event.SubstitutionType
 import com.example.fourthofficial.domain.id.PlayerId
+import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.domain.team.Player
 import com.example.fourthofficial.ui.common.AppAlertDialog
 import com.example.fourthofficial.ui.theme.AppButtonShape
-import com.example.fourthofficial.domain.match.MatchPhase
 
 @Composable
 fun EditScoreDialog(
