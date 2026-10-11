@@ -1,0 +1,778 @@
+package com.thecheddarman.fourthofficial.ui.summary
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.thecheddarman.fourthofficial.domain.event.Discipline
+import com.thecheddarman.fourthofficial.domain.event.DisciplineReason
+import com.thecheddarman.fourthofficial.domain.event.DisciplineReasonRed
+import com.thecheddarman.fourthofficial.domain.event.DisciplineReasonYellow
+import com.thecheddarman.fourthofficial.domain.event.DisciplineType
+import com.thecheddarman.fourthofficial.domain.event.Score
+import com.thecheddarman.fourthofficial.domain.event.ScoreType
+import com.thecheddarman.fourthofficial.domain.event.Substitution
+import com.thecheddarman.fourthofficial.domain.event.SubstitutionType
+import com.thecheddarman.fourthofficial.domain.id.PlayerId
+import com.thecheddarman.fourthofficial.domain.match.MatchPhase
+import com.thecheddarman.fourthofficial.domain.team.Player
+import com.thecheddarman.fourthofficial.ui.common.AppAlertDialog
+import com.thecheddarman.fourthofficial.ui.theme.AppButtonShape
+
+@Composable
+fun EditScoreDialog(
+    event: Score,
+    players: List<Player>,
+    initialTimeText: String,
+    minTimeMs: Long = 0L,
+    maxTimeMs: Long?,
+    errorMessage: String?,
+    onSave: (playerId: PlayerId?, type: ScoreType, timeMs: Long) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var selectedPlayerId by remember(event.id.value) { mutableStateOf(event.playerId) }
+    var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
+    var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
+    var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
+    val parsedTimeMs = parseMatchTime(timeText)
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
+    val selectedPlayer = players.find { it.id == selectedPlayerId }
+    val playerIsValid = !selectedType.requiresPlayer || selectedPlayerId != null
+    val canSave = timeIsValid && playerIsValid
+
+    if (showDeleteConfirmation) {
+        AppAlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = "Delete Score",
+            text = {
+                Text("Delete this score event?")
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = { OutlinedButton(onClick = {
+                showDeleteConfirmation = false }, shape = AppButtonShape) { Text("Cancel") }
+            }
+        )
+        return
+    }
+
+    AppAlertDialog(
+        onDismissRequest = onCancel,
+        title = "Edit Score",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp))
+            {
+                SelectionField(
+                    label = "Type",
+                    value = selectedType.label,
+                    options = ScoreType.entries,
+                    optionLabel = { it.label },
+                    onSelected = {
+                        newType -> selectedType = newType
+
+                        if (!newType.requiresPlayer) {
+                            selectedPlayerId = null
+                        }
+                    }
+                )
+
+                SelectionField(
+                    label = "Player",
+                    value =
+                        if (selectedType.requiresPlayer)
+                            selectedPlayer?.let(::playerLabel) ?: "Select player"
+                        else
+                            "No player for penalty try",
+                    options = players.sortedBy { it.number },
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerId = it.id },
+                    enabled = selectedType.requiresPlayer
+                )
+
+                MatchTimeField(
+                    value = timeText,
+                    onValueChange = { timeText = it },
+                    parsedTimeMs = parsedTimeMs,
+                    timeIsBeforeHalf = timeIsBeforeHalf,
+                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
+                )
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                ) {
+                    Text("Delete")
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    onClick = {
+                        val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+                        val savedPlayerId =
+                            if (selectedType.requiresPlayer)
+                                selectedPlayerId ?: return@Button
+                            else
+                                null
+
+                        onSave(
+                            savedPlayerId,
+                            selectedType,
+                            timeMs
+                        )
+                    },
+                    enabled = canSave,
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Save", maxLines = 1)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun EditSubstitutionDialog(
+    event: Substitution,
+    players: List<Player>,
+    initialTimeText: String,
+    availablePeriods: List<MatchPhase>,
+    halfDurationMs: Long,
+    firstHalfMaxTimeMs: Long?,
+    secondHalfMaxTimeMs: Long?,
+    errorMessage: String?,
+    onSave: (
+        playerOffId: PlayerId,
+        playerOnId: PlayerId,
+        type: SubstitutionType,
+        period: MatchPhase,
+        timeMs: Long
+    ) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val initialPeriod = when {
+        event.occurredAtHalfTime -> MatchPhase.HALF_TIME
+        event.halfIndex == 1 -> MatchPhase.FIRST_HALF
+        else -> MatchPhase.SECOND_HALF
+    }
+    var selectedPeriod by remember(event.id.value) { mutableStateOf(initialPeriod) }
+    var selectedPlayerOffId by remember(event.id.value) { mutableStateOf(event.playerOffId) }
+    var selectedPlayerOnId by remember(event.id.value) { mutableStateOf(event.playerOnId) }
+    var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
+    var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
+    var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
+    val parsedTimeMs = parseMatchTime(timeText)
+    val minTimeMs = if (selectedPeriod == MatchPhase.SECOND_HALF) { halfDurationMs } else { 0L }
+    val maxTimeMs = when (selectedPeriod) {
+        MatchPhase.FIRST_HALF -> firstHalfMaxTimeMs
+        MatchPhase.HALF_TIME -> halfDurationMs
+        MatchPhase.SECOND_HALF -> secondHalfMaxTimeMs
+        MatchPhase.NOT_STARTED,
+        MatchPhase.FINISHED -> 0L
+    }
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val numericTimeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
+    val timeIsValid = selectedPeriod == MatchPhase.HALF_TIME || numericTimeIsValid
+    val playersAreDifferent = selectedPlayerOffId != selectedPlayerOnId
+    val canSave = timeIsValid && playersAreDifferent
+    val selectedPlayerOff = players.find { it.id == selectedPlayerOffId }
+    val selectedPlayerOn = players.find { it.id == selectedPlayerOnId }
+    val sortedPlayers = players.sortedBy { it.number }
+
+    if (showDeleteConfirmation) {
+        AppAlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = "Delete Substitution",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Delete this substitution event?")
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape)
+                { Text("Cancel") }
+            }
+        )
+        return
+    }
+
+    AppAlertDialog(
+        onDismissRequest = onCancel,
+        title = "Edit Substitution",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SelectionField(
+                    label = "Player Off",
+                    value = selectedPlayerOff?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerOffId = it.id }
+                )
+
+                SelectionField(
+                    label = "Reason",
+                    value = selectedType.label,
+                    options = SubstitutionType.entries,
+                    optionLabel = { it.label },
+                    onSelected = { selectedType = it }
+                )
+
+                SelectionField(
+                    label = "Player On",
+                    value = selectedPlayerOn?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerOnId = it.id }
+                )
+
+                SelectionField(
+                    label = "Period",
+                    value = substitutionPeriodLabel(selectedPeriod),
+                    options = availablePeriods,
+                    optionLabel = ::substitutionPeriodLabel,
+                    onSelected = { newPeriod ->
+                        selectedPeriod = newPeriod
+
+                        when (newPeriod) {
+                            MatchPhase.FIRST_HALF -> {
+                                firstHalfMaxTimeMs?.let { maxTimeMs ->
+                                    timeText = formatMatchTimeInput(maxTimeMs)
+                                }
+                            }
+
+                            MatchPhase.SECOND_HALF -> {
+                                timeText = formatMatchTimeInput(halfDurationMs)
+                            }
+
+                            MatchPhase.HALF_TIME,
+                            MatchPhase.NOT_STARTED,
+                            MatchPhase.FINISHED -> Unit
+                        }
+                    }
+                )
+
+                if (selectedPeriod == MatchPhase.HALF_TIME) {
+                    OutlinedTextField(
+                        value = "Half Time",
+                        onValueChange = {},
+                        enabled = false,
+                        singleLine = true,
+                        label = { Text("Match Time") },
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    MatchTimeField(
+                        value = timeText,
+                        onValueChange = { timeText = it },
+                        parsedTimeMs = parsedTimeMs,
+                        timeIsBeforeHalf = timeIsBeforeHalf,
+                        timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
+                    )
+                }
+
+                if (!playersAreDifferent) {
+                    Text(
+                        text = "Player Off and Player On must be different players.",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                ) {
+                    Text("Delete")
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    enabled = canSave,
+                    onClick = {
+                        val savedTimeMs =
+                            if (selectedPeriod == MatchPhase.HALF_TIME) {
+                                halfDurationMs
+                            } else {
+                                val timeMs = parsedTimeMs?.takeIf { numericTimeIsValid } ?: return@Button
+                                if (selectedPeriod == initialPeriod && timeMs / 1000L == event.timeMs / 1000L) {
+                                    event.timeMs
+                                } else {
+                                    timeMs
+                                }
+                            }
+
+                        onSave(
+                            selectedPlayerOffId,
+                            selectedPlayerOnId,
+                            selectedType,
+                            selectedPeriod,
+                            savedTimeMs
+                        )
+                    },
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(text = "Save", maxLines = 1)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun EditDisciplineDialog(
+    event: Discipline,
+    players: List<Player>,
+    initialTimeText: String,
+    minTimeMs: Long = 0L,
+    maxTimeMs: Long?,
+    errorMessage: String?,
+    onSave: (playerId: PlayerId, type: DisciplineType, reason: DisciplineReason, timeMs: Long) -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var selectedPlayerId by remember(event.id.value) { mutableStateOf(event.playerId) }
+    var selectedType by remember(event.id.value) { mutableStateOf(event.type) }
+    var selectedReason by remember(event.id.value) { mutableStateOf(event.reason) }
+    var timeText by remember(event.id.value) { mutableStateOf(initialTimeText) }
+    var showDeleteConfirmation by remember(event.id.value) { mutableStateOf(false) }
+    val parsedTimeMs = parseMatchTime(timeText)
+    val timeIsAfterCurrentMatch = maxTimeMs != null && parsedTimeMs != null && parsedTimeMs > maxTimeMs
+    val timeIsBeforeHalf = parsedTimeMs != null && parsedTimeMs < minTimeMs
+    val timeIsValid = parsedTimeMs != null && !timeIsBeforeHalf && !timeIsAfterCurrentMatch
+    val selectedPlayer = players.find { it.id == selectedPlayerId }
+    val sortedPlayers = players.sortedBy { it.number }
+    val validReasons = disciplineReasonsFor(selectedType)
+
+    if (showDeleteConfirmation) {
+        AppAlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = "Delete Discipline",
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Delete this discipline event?")
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onDelete,
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = { OutlinedButton(onClick = { showDeleteConfirmation = false }, shape = AppButtonShape) {
+                Text("Cancel") }
+            }
+        )
+        return
+    }
+
+    AppAlertDialog(
+        onDismissRequest = onCancel,
+        title = "Edit Discipline",
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SelectionField(
+                    label = "Card",
+                    value = selectedType.label,
+                    options = DisciplineType.entries,
+                    optionLabel = { it.label },
+                    onSelected = { newType ->
+                        selectedType = newType
+
+                        val newReasons = disciplineReasonsFor(newType)
+
+                        selectedReason = newReasons.firstOrNull{
+                            it.label == selectedReason.label } ?: newReasons.first()
+                    }
+                )
+
+                SelectionField(
+                    label = "Reason",
+                    value = selectedReason.label,
+                    options = validReasons,
+                    optionLabel = { it.label },
+                    onSelected = { selectedReason = it }
+                )
+
+                SelectionField(
+                    label = "Player",
+                    value = selectedPlayer?.let(::playerLabel) ?: "Unknown player",
+                    options = sortedPlayers,
+                    optionLabel = ::playerLabel,
+                    onSelected = { selectedPlayerId = it.id }
+                )
+
+                MatchTimeField(
+                    value = timeText,
+                    onValueChange = { timeText = it },
+                    parsedTimeMs = parsedTimeMs,
+                    timeIsBeforeHalf = timeIsBeforeHalf,
+                    timeIsAfterCurrentMatch = timeIsAfterCurrentMatch
+                )
+
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showDeleteConfirmation = true },
+                    shape = AppButtonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                ) {
+                    Text("Delete")
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                OutlinedButton(
+                    onClick = onCancel,
+                    shape = AppButtonShape,
+                ) {
+                    Text("Cancel")
+                }
+
+                Button(
+                    enabled = timeIsValid,
+                    onClick = {
+                        val timeMs = parsedTimeMs?.takeIf { timeIsValid } ?: return@Button
+                        val savedTimeMs =
+                            if (timeMs / 1000L == event.timeMs / 1000L) {
+                                event.timeMs
+                            } else {
+                                timeMs
+                            }
+
+                        onSave(
+                            selectedPlayerId,
+                            selectedType,
+                            selectedReason,
+                            savedTimeMs
+                        )
+                    },
+                    shape = AppButtonShape,
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp
+                    )
+                ) {
+                    Text(
+                        text = "Save",
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun <T> SelectionField(
+    label: String,
+    value: String,
+    options: List<T>,
+    optionLabel: (T) -> String,
+    onSelected: (T) -> Unit,
+    enabled: Boolean = true
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Surface(
+                color =
+                    if (enabled) MaterialTheme.colorScheme.surface
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                contentColor =
+                    if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                border = BorderStroke(
+                    1.dp,
+                    if (enabled) MaterialTheme.colorScheme.outline
+                    else MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { expanded = true }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = value,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (enabled) {
+                        Text(
+                            text = "▾",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded && enabled,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = optionLabel(option),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchTimeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    parsedTimeMs: Long?,
+    timeIsBeforeHalf: Boolean,
+    timeIsAfterCurrentMatch: Boolean
+) {
+    val hasError = value.isNotBlank() && (parsedTimeMs == null || timeIsBeforeHalf || timeIsAfterCurrentMatch)
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "Match Time",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            placeholder = { Text("MM:SS") },
+            isError = hasError,
+            supportingText = {
+                when {
+                    value.isNotBlank() &&
+                            parsedTimeMs == null -> { Text("Enter time as MM:SS") }
+
+                    timeIsBeforeHalf -> {
+                        Text("Time cannot be earlier than the start of this half.")
+                    }
+
+                    timeIsAfterCurrentMatch -> {
+                        Text("Time cannot be later than the current match clock.")
+                    }
+                }
+            },
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+private fun substitutionPeriodLabel(period: MatchPhase): String {
+    return when (period) {
+        MatchPhase.NOT_STARTED -> "Not Started"
+        MatchPhase.FIRST_HALF -> "First Half"
+        MatchPhase.HALF_TIME -> "Half Time"
+        MatchPhase.SECOND_HALF -> "Second Half"
+        MatchPhase.FINISHED -> "Finished"
+    }
+}
+
+private fun disciplineReasonsFor(type: DisciplineType): List<DisciplineReason> {
+    return when (type) {
+        DisciplineType.YELLOW -> DisciplineReasonYellow.entries
+        DisciplineType.RED -> DisciplineReasonRed.entries
+    }
+}
+
+private fun formatMatchTimeInput(timeMs: Long): String {
+    val totalSeconds = timeMs / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+
+    return "%02d:%02d".format(minutes, seconds)
+}
+
+private fun parseMatchTime(value: String): Long?
+{
+    val parts = value.trim().split(":")
+    if (parts.size != 2) { return null }
+
+    val minutes = parts[0].toLongOrNull() ?: return null
+    val seconds = parts[1].toLongOrNull() ?: return null
+    if (minutes < 0L) { return null }
+
+    if (seconds !in 0L..59L) { return null }
+
+    return (minutes * 60L + seconds) * 1000L
+}
+
+private fun playerLabel(player: Player): String
+{
+    return "${player.number}. " + player.name.ifBlank { "(Unnamed)" }
+}

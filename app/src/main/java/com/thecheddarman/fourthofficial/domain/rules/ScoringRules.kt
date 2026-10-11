@@ -1,0 +1,17 @@
+package com.thecheddarman.fourthofficial.domain.rules
+
+import com.thecheddarman.fourthofficial.domain.event.Score
+import com.thecheddarman.fourthofficial.domain.event.ScoreType
+
+fun getScoreTypePoints(type: ScoreType): Int = when (type) {
+    ScoreType.TRY -> 5
+    ScoreType.CONVERSION_MADE -> 2
+    ScoreType.PENALTY_MADE -> 3
+    ScoreType.PENALTY_TRY -> 7
+    ScoreType.DROP_GOAL_MADE -> 3
+    else -> 0
+}
+
+fun calculateScore(events: List<Score>): Int {
+    return events.sumOf { getScoreTypePoints(it.type) }
+}

@@ -7,13 +7,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.fourthofficial"
+    namespace = "com.thecheddarman.fourthofficial"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.fourthofficial"
+        applicationId = "com.thecheddarman.fourthofficial"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

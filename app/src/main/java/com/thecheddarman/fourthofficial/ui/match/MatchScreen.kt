@@ -1,0 +1,262 @@
+package com.thecheddarman.fourthofficial.ui.match
+
+import android.annotation.SuppressLint
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import com.thecheddarman.fourthofficial.domain.event.DisciplineType
+import com.thecheddarman.fourthofficial.domain.id.PlayerId
+import com.thecheddarman.fourthofficial.domain.id.TeamId
+import com.thecheddarman.fourthofficial.domain.match.MatchPhase
+import com.thecheddarman.fourthofficial.ui.match.components.ActionMenuDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.DisciplineReasonRedDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.DisciplineReasonYellowDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.DisciplineTypeDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.FinishHalfDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.MatchContent
+import com.thecheddarman.fourthofficial.ui.match.components.MatchTeamColumns
+import com.thecheddarman.fourthofficial.ui.match.components.ScoreDialogue
+import com.thecheddarman.fourthofficial.ui.match.components.SubstitutionPreparationContent
+import com.thecheddarman.fourthofficial.ui.viewmodel.MatchViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+
+@Composable
+fun MatchScreen(
+    modifier: Modifier = Modifier,
+    vm: MatchViewModel
+) {
+    //region vars and vals
+    var uiState by remember { mutableStateOf<MatchScreenUiState>(MatchScreenUiState.None) }
+    val dismissDialogue = { uiState = MatchScreenUiState.None }
+    var showLogHalfDialog by remember { mutableStateOf(false) }
+
+    val selectedTeam = { teamId: TeamId -> when(teamId){
+        vm.team1.id -> vm.team1
+        vm.team2.id -> vm.team2
+        else -> error("Unknown TeamID: $teamId")
+    }}
+    val selectedTeamName = { teamId: TeamId ->
+        val team = selectedTeam(teamId)
+        team.name.ifBlank { "Team ${team.index}" }
+    }
+    val selectedPlayer = { teamId: TeamId, playerId: PlayerId ->
+        selectedTeam(teamId).players.find { it.id == playerId }?.name?.ifBlank { "(Unnamed)" }
+            ?: "(Unnamed)"
+    }
+    val openSubstitutionPreparation = { teamId: TeamId, playerId: PlayerId ->
+        vm.startPreparedSubstitutionBatch(teamId)
+        vm.addPreparedSubstitution(teamId = teamId, playerOffId = playerId)
+        uiState = MatchScreenUiState.PreparingSubstitutions(
+            teamId = teamId,
+            initialReplacementPlayerOffId = playerId
+        )
+    }
+    val coroutineScope = rememberCoroutineScope()
+    //endregion
+
+    MatchContent(
+        modifier = modifier,
+        vm = vm,
+        onFinishHalfRequested = { showLogHalfDialog = true }
+    )
+    {
+        val currentUiState = uiState
+
+        if (currentUiState is MatchScreenUiState.PreparingSubstitutions) {
+            SubstitutionPreparationContent(
+                vm = vm,
+                teamId = currentUiState.teamId,
+                initialReplacementPlayerOffId = currentUiState.initialReplacementPlayerOffId,
+                onReturnToMatch = {
+                    if (vm.getPreparedSubstitutions(currentUiState.teamId).isEmpty()) {
+                        vm.cancelPreparedSubstitutionBatch(currentUiState.teamId)
+                    }
+                    uiState = MatchScreenUiState.None
+                }
+            )
+        } else {
+            MatchTeamColumns(
+                vm = vm,
+                onPlayerTapped = { teamId, playerId ->
+                    if (vm.phase == MatchPhase.HALF_TIME) {
+                        coroutineScope.launch {
+                            delay(25.milliseconds)
+                            openSubstitutionPreparation(teamId, playerId)
+                        }
+                    } else {
+                        uiState = MatchScreenUiState.ActionMenu(
+                            teamId = teamId,
+                            playerId = playerId,
+                            eventTimeMs = vm.displayElapsedMs,
+                            halfIndex = vm.currentHalf
+                        )
+                    }
+                },
+
+                onPlayerLongPressed = { teamId, playerId ->
+                    openSubstitutionPreparation(teamId, playerId)
+                },
+
+                onPreparedSubstitutionsTapped = { teamId ->
+                    uiState = MatchScreenUiState.PreparingSubstitutions(teamId = teamId)
+                }
+            )
+        }
+    }
+
+    when (val state = uiState) {
+
+        MatchScreenUiState.None -> Unit
+
+        is MatchScreenUiState.ActionMenu -> {
+            ActionMenuDialogue(
+                playerName = selectedPlayer(state.teamId, state.playerId),
+                isClockRunning = vm.clock.isRunning,
+                onScore = {
+                    uiState = MatchScreenUiState.ScorePick(
+                        state.teamId,
+                        state.playerId,
+                        state.eventTimeMs,
+                        state.halfIndex
+                    )
+                },
+                onSubstitution = {
+                    openSubstitutionPreparation(
+                        state.teamId,
+                        state.playerId
+                    )
+                },
+                onDiscipline = {
+                    uiState = MatchScreenUiState.DiscPickType(
+                        state.teamId,
+                        state.playerId,
+                        state.eventTimeMs,
+                        state.halfIndex
+                    )
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.ScorePick -> {
+            ScoreDialogue(
+                teamName = selectedTeamName(state.teamId),
+                playerName = selectedPlayer(state.teamId, state.playerId),
+                onConfirm = { scoreType ->
+                    val playerId =
+                        if (scoreType.requiresPlayer)
+                            state.playerId
+                        else
+                            null
+
+                    val recorded = vm.recordScore(
+                        teamId = state.teamId,
+                        playerId = playerId,
+                        scoreType = scoreType,
+                        eventTimeMs = state.eventTimeMs,
+                        halfIndex = state.halfIndex
+                    )
+
+                    if (recorded) {
+                        dismissDialogue()
+                    }
+                    dismissDialogue()
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.PreparingSubstitutions -> Unit
+
+        is MatchScreenUiState.DiscPickType -> {
+            DisciplineTypeDialogue(
+                playerName = selectedPlayer(state.teamId, state.playerId),
+                onConfirm = { discType ->
+                    uiState = MatchScreenUiState.DiscPickReason(
+                        teamId = state.teamId,
+                        playerId = state.playerId,
+                        type = discType,
+                        state.eventTimeMs,
+                        state.halfIndex
+                    )
+                },
+                onDismiss = dismissDialogue
+            )
+        }
+
+        is MatchScreenUiState.DiscPickReason -> {
+            when (state.type) {
+                DisciplineType.YELLOW -> {
+                    DisciplineReasonYellowDialogue(
+                        onConfirm = { reason ->
+                            val recorded = vm.recordDiscipline(
+                                state.teamId,
+                                state.playerId,
+                                state.type,
+                                reason,
+                                state.eventTimeMs,
+                                state.halfIndex
+                            )
+                            if(recorded)
+                                dismissDialogue()
+                        },
+                        onDismiss = dismissDialogue
+                    )
+                }
+
+                DisciplineType.RED -> {
+                    DisciplineReasonRedDialogue(
+                        onConfirm = { reason ->
+                            val recorded = vm.recordDiscipline(
+                                state.teamId,
+                                state.playerId,
+                                state.type,
+                                reason,
+                                state.eventTimeMs,
+                                state.halfIndex
+                            )
+                            if(recorded)
+                                dismissDialogue()
+                        },
+                        onDismiss = dismissDialogue
+                    )
+                }
+            }
+        }
+    }
+
+    if (showLogHalfDialog) {
+        val hasReachedHalfDuration = vm.hasReachedHalfDuration
+        val finishingMatch = vm.phase == MatchPhase.SECOND_HALF
+
+        FinishHalfDialogue(
+            hasReachedHalfDuration = hasReachedHalfDuration,
+            finishingMatch = finishingMatch,
+            onConfirm = {
+                when (vm.phase) {
+                    MatchPhase.FIRST_HALF -> vm.logHalf()
+                    MatchPhase.SECOND_HALF -> vm.endMatch()
+                    else -> Unit
+                }
+                showLogHalfDialog = false
+            },
+            onDismiss = {
+                showLogHalfDialog = false
+            }
+        )
+    }
+}
+
+@SuppressLint("ViewModelConstructorInComposable")
+@Preview(showBackground = true)
+@Composable
+private fun MatchScreenPreview() {
+    MatchScreen(vm = MatchViewModel())
+}
