@@ -75,7 +75,7 @@ The project is broadly organised into:
 - `domain/` - match, team, rules and event models
 - `export/` - match export functionality
 - `ui/` - application screens and reusable UI components
-- 'dev/' - development test data and tooling
+- `dev/` - development test data and tooling
 
 ## Contributing
 
