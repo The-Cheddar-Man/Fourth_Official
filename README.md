@@ -34,6 +34,8 @@ Current release:
 
 ## Development roadmap
 
+For the full development plan, see [Roadmap](docs/Roadmap.md)
+
 ### Alpha v2
 
 The next major development phase will focus on the following:
@@ -76,6 +78,8 @@ The project is broadly organised into:
 - `export/` - match export functionality
 - `ui/` - application screens and reusable UI components
 - `dev/` - development test data and tooling
+
+For a more detailed breakdown, see [File Structure](docs/File_Structure.md).
 
 ## Contributing
 
