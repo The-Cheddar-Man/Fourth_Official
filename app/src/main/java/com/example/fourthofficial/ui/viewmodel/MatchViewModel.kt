@@ -44,6 +44,8 @@ import com.example.fourthofficial.domain.rules.canActOnPlayer as canActOnPlayerR
 import com.example.fourthofficial.domain.rules.hasReachedHalfDuration as hasReachedHalfDurationRule
 import com.example.fourthofficial.domain.rules.isYellowActive as isYellowActiveRule
 import com.example.fourthofficial.domain.rules.yellowRemainingMs as yellowRemainingMsRule
+import com.example.fourthofficial.BuildConfig
+import com.example.fourthofficial.dev.DevTestData
 
 class MatchViewModel : ViewModel() {
 
@@ -1021,5 +1023,79 @@ class MatchViewModel : ViewModel() {
 
             return completedWholeSeconds + clock.halfElapsedMs
         }
+    //endregion
+
+    //==================
+    //   DEV TEST DATA
+    //==================
+
+    //region Dev Test Data
+
+    fun loadDevTestTeam(): String? {
+        if (!BuildConfig.DEBUG) {
+            return null
+        }
+
+        tickerJob?.cancel()
+        tickerJob = null
+
+        startRealtimeMs = 0L
+        baseHalfElapsedMs = 0L
+        baseTotalElapsedMs = 0L
+
+        val testTeams = DevTestData.createTeams()
+
+        matchState = MatchState(
+            team1 = defaultMatchTeamState(testTeams.team1),
+            team2 = defaultMatchTeamState(testTeams.team2)
+        )
+
+        return null
+    }
+
+    fun loadDevTestSummary(): String? {
+        if (!BuildConfig.DEBUG) {
+            return null
+        }
+
+        tickerJob?.cancel()
+        tickerJob = null
+        startRealtimeMs = 0L
+
+        val testTeams = DevTestData.createTeams()
+        val secondHalfElapsedMs = 28L * 60L * 1000L
+        val totalElapsedMs = halfDurationMs + secondHalfElapsedMs
+
+        baseHalfElapsedMs = secondHalfElapsedMs
+        baseTotalElapsedMs = totalElapsedMs
+
+        matchState = MatchState(
+            phase = MatchPhase.SECOND_HALF,
+            clock = MatchClock(
+                isRunning = false,
+                halfElapsedMs = secondHalfElapsedMs,
+                totalElapsedMs = totalElapsedMs
+            ),
+
+            team1 = defaultMatchTeamState(testTeams.team1),
+            team2 = defaultMatchTeamState(testTeams.team2)
+        )
+
+        val testEvents = DevTestData.createSummaryEvents(
+            team1 = testTeams.team1,
+            team2 = testTeams.team2,
+            halfDurationMs = halfDurationMs
+        )
+
+        return when (val result = commitEventHistory(testEvents)) {
+            is MatchEventReplayResult.Success -> null
+            is MatchEventReplayResult.Failure -> "Dev test match failed: ${result.message}"
+        }
+    }
+
+    fun loadDevTestMatch(): String? {
+        return loadDevTestSummary()
+    }
+
     //endregion
 }
