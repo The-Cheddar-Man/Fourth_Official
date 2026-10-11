@@ -1050,7 +1050,10 @@ class MatchViewModel : ViewModel() {
             team2 = defaultMatchTeamState(testTeams.team2)
         )
 
-        return null
+        return when (team1.name == "Team 1" || team2.name == "Team 2") {
+            true -> null
+            false -> "Dev test teams failed"
+        }
     }
 
     fun loadDevTestSummary(): String? {
