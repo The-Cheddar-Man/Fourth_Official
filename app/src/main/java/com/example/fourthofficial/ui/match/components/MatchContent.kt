@@ -33,7 +33,7 @@ import com.example.fourthofficial.domain.id.TeamId
 import com.example.fourthofficial.domain.match.MatchPhase
 import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.theme.AppCardShape
-import com.example.fourthofficial.ui.theme.MainScreenHeaderHeight
+import com.example.fourthofficial.ui.theme.MatchScreenHeaderHeight
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 private enum class ClockDisplayMode {
@@ -131,7 +131,7 @@ private fun MatchHeader(vm: MatchViewModel, clockDisplayMode: ClockDisplayMode, 
         vm.phase == MatchPhase.HALF_TIME || vm.phase == MatchPhase.SECOND_HALF || vm.phase == MatchPhase.FINISHED
 
     Surface(
-        modifier = Modifier.fillMaxWidth().height(MainScreenHeaderHeight),
+        modifier = Modifier.fillMaxWidth().height(MatchScreenHeaderHeight),
         shape = AppCardShape,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(

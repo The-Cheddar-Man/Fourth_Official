@@ -47,12 +47,12 @@ fun AppRoot() {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    fun showDevMessage(message: String) {
+    fun showMessage(message: String, durationMs: Long) {
         coroutineScope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
 
             launch {
-                delay(2_000L.milliseconds)
+                delay(durationMs.milliseconds)
                 snackbarHostState.currentSnackbarData?.dismiss()
             }
 
@@ -89,7 +89,7 @@ fun AppRoot() {
                     label = "Setup",
                     onDevHold = {
                         val error = matchVm.loadDevTestTeam()
-                        showDevMessage(error ?: "Dev teams loaded")
+                        showMessage(error ?: "Dev teams loaded", 2_000L)
                     }
                 )
                 AppNavigationBarItem(
@@ -98,7 +98,7 @@ fun AppRoot() {
                     label = "Match",
                     onDevHold = {
                         val error = matchVm.loadDevTestMatch()
-                        showDevMessage(error ?: "Dev match loaded")
+                        showMessage(error ?: "Dev match loaded", 2_000L)
                     }
                 )
                 AppNavigationBarItem(
@@ -107,7 +107,7 @@ fun AppRoot() {
                     label = "Summary",
                     onDevHold = {
                         val error = matchVm.loadDevTestSummary()
-                        showDevMessage(error ?: "Dev match history loaded")
+                        showMessage(error ?: "Dev match history loaded", 2_000L)
                     }
                 )
             }
@@ -129,7 +129,10 @@ fun AppRoot() {
 
             Screen.Summary -> SummaryScreen(
                 modifier = Modifier.padding(padding),
-                vm = matchVm
+                vm = matchVm,
+                onShowMessage = { message ->
+                    showMessage(message, 4_000L)
+                }
             )
         }
     }

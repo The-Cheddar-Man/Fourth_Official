@@ -3,19 +3,27 @@ package com.example.fourthofficial.ui.summary
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,64 +53,65 @@ import com.example.fourthofficial.export.TeamPdfExporter
 import com.example.fourthofficial.ui.common.DataTable
 import com.example.fourthofficial.ui.common.TableColumn
 import com.example.fourthofficial.ui.theme.AppButtonShape
+import com.example.fourthofficial.ui.theme.AppCardShape
+import com.example.fourthofficial.ui.theme.SummaryScreenHeaderHeight
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 enum class SummaryTab(val label: String) {
     Scores("Scores"),
-    Substitutions("Substitutions"),
+    Substitutions("Subs"),
     Discipline("Discipline"),
     Export("Export")
 }
 
 @Composable
-fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel) {
+fun SummaryScreen(modifier: Modifier = Modifier, vm: MatchViewModel, onShowMessage: (String) -> Unit) {
     var currentTab by rememberSaveable { mutableStateOf(SummaryTab.Scores) }
     var selectedTeam by rememberSaveable { mutableIntStateOf(1) }
     var selectedHalf by rememberSaveable { mutableIntStateOf(1) }
     val team = if (selectedTeam == 1) vm.team1 else vm.team2
 
-    Column(modifier = modifier.fillMaxSize()) {
-        PrimaryTabRow(
-            selectedTabIndex = currentTab.ordinal
-        ) {
-            SummaryTab.entries.forEachIndexed { index, tab ->
-                Tab(
-                    selected = currentTab.ordinal == index,
-                    onClick = { currentTab = tab },
-                    text = {
-                        Text(
-                            text = tab.label,
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                )
-            }
-        }
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         if (currentTab != SummaryTab.Export) {
-            SummaryFilters(
+            SummaryEventHeader(
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it },
                 team = team,
                 halfIndex = selectedHalf,
-                onSwitchTeam = {
-                    selectedTeam = switchTeams(selectedTeam)
-                },
-                onSwitchHalf = {
-                    selectedHalf = switchHalf(selectedHalf)
-                }
+                onSwitchTeam = { selectedTeam = switchTeams(selectedTeam) },
+                onSwitchHalf = { selectedHalf = switchHalf(selectedHalf) }
             )
         }
 
         when (currentTab) {
-            SummaryTab.Scores -> ScoresTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Substitutions -> SubstitutionsTab(
+            SummaryTab.Scores -> ScoresTab(
+                modifier = Modifier.weight(1f),
                 vm = vm,
                 team = team,
                 halfIndex = selectedHalf
             )
-
-            SummaryTab.Discipline -> DisciplinesTab(vm = vm, team = team, halfIndex = selectedHalf)
-            SummaryTab.Export -> ExportTab(vm = vm)
+            SummaryTab.Substitutions -> SubstitutionsTab(
+                modifier = Modifier.weight(1f),
+                vm = vm,
+                team = team,
+                halfIndex = selectedHalf
+            )
+            SummaryTab.Discipline -> DisciplinesTab(
+                modifier = Modifier.weight(1f),
+                vm = vm,
+                team = team,
+                halfIndex = selectedHalf
+            )
+            SummaryTab.Export -> ExportTab(
+                modifier = Modifier.weight(1f),
+                vm = vm,
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it },
+                onShowMessage = onShowMessage
+            )
         }
     }
 }
@@ -115,16 +124,8 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp)
     ) {
-        Text(
-            "Match Scores",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
         val events = vm.scoreEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
             .sortedBy { it.timeMs / 1000L}
@@ -141,11 +142,15 @@ private fun ScoresTab(modifier: Modifier = Modifier, vm: MatchViewModel, team: T
         DataTable(
             events = events,
             columns = columns,
-            Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             keySelector = { it.id.value },
             onRowClick = { score ->
                 editError = null
-                selectedScore = score }
+                selectedScore = score
+            },
+            emptyMessage = "No scores recorded for " +
+                "${team.name.ifBlank { "Team ${team.index}" }} - " +
+                if (halfIndex == 1) { "First Half" } else { "Second Half" }
         )
 
         val scoreToEdit = selectedScore
@@ -203,11 +208,8 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
-        Text("Match Substitutions", style = MaterialTheme.typography.headlineMedium)
-
         val events = vm.subEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
             .sortedWith(compareBy<Substitution> { it.timeMs / 1000L }.thenBy {
@@ -241,7 +243,10 @@ private fun SubstitutionsTab(modifier: Modifier = Modifier, vm: MatchViewModel, 
             onRowClick = { substitution ->
                 editError = null
                 selectedSubstitution = substitution
-            }
+            },
+            emptyMessage = "No substitutions recorded for " +
+                "${team.name.ifBlank { "Team ${team.index}" }} - " +
+                if (halfIndex == 1) { "First Half" } else { "Second Half" }
         )
 
         val substitutionToEdit = selectedSubstitution
@@ -303,11 +308,8 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
     var editError by remember { mutableStateOf<String?>(null) }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
         modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
-        Text("Match Disciplines", style = MaterialTheme.typography.headlineMedium)
-
         val events = vm.discEvents
             .filter { it.teamId == team.id && it.halfIndex == halfIndex }
             .sortedBy { it.timeMs / 1000L}
@@ -335,7 +337,10 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
             onRowClick = { discipline ->
                 editError = null
                 selectedDiscipline = discipline
-            }
+            },
+            emptyMessage = "No discipline recorded for " +
+                "${team.name.ifBlank { "Team ${team.index}" }} - " +
+                if (halfIndex == 1) { "First Half" } else { "Second Half" }
         )
     }
 
@@ -391,7 +396,9 @@ private fun DisciplinesTab(modifier: Modifier = Modifier, vm: MatchViewModel, te
 }
 
 @Composable
-private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
+private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel,
+                      currentTab: SummaryTab, onTabSelected: (SummaryTab) -> Unit,
+                      onShowMessage: (String) -> Unit) {
     val context = LocalContext.current
     val exporter = remember { TeamPdfExporter() }
     var includeScores by rememberSaveable { mutableStateOf(true) }
@@ -401,7 +408,6 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
     var includeDiscipline by rememberSaveable { mutableStateOf(true) }
     var selectedPeriod by rememberSaveable { mutableStateOf(PdfMatchPeriod.FULL_MATCH) }
     var pendingExport by remember { mutableStateOf<PendingPdfExport?>(null) }
-    var exportMessage by remember { mutableStateOf<String?>(null) }
     val team1 = vm.team1
     val team2 = vm.team2
     val includedTeamIds =
@@ -453,161 +459,218 @@ private fun ExportTab(modifier: Modifier = Modifier, vm: MatchViewModel) {
                 )
             }
 
-            exportMessage = "PDF exported successfully."
+            onShowMessage("PDF exported successfully.")
         } catch (exception: Exception) {
-            exportMessage = "Export failed: " + (exception.message ?: "Unknown error.")
+            onShowMessage("Export failed: " + (exception.message ?: "Unknown error."))
         } finally {
             pendingExport = null
         }
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier.fillMaxSize().padding(16.dp)
-    ) {
-        Text("Export Match Report", style = MaterialTheme.typography.headlineMedium)
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Teams",
-                style = MaterialTheme.typography.titleMedium
-            )
+    val canExport = includedTeamIds.isNotEmpty() && exportOptions.hasSelectedEventTypes
+    val exportValidationMessage = when {
+        includedTeamIds.isEmpty() -> "Select at least one team."
+        !exportOptions.hasSelectedEventTypes -> "Select at least one event type."
+        else -> null
+    }
+    val startExport: () -> Unit = {
+        pendingExport = PendingPdfExport(
+            matchState = vm.matchState,
+            teamIds = includedTeamIds,
+            options = exportOptions
+        )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+        createPdfLauncher.launch(
+            buildPdfFileName(
+                selectedTeamIds = includedTeamIds,
+                team1 = team1,
+                team2 = team2,
+                period = selectedPeriod
+            )
+        )
+    }
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SummaryExportHeader(
+            enabled = canExport,
+            onExport = startExport,
+            currentTab = currentTab,
+            onTabSelected = onTabSelected
+        )
+
+        exportValidationMessage?.let { message ->
+            Text(
+                text = message,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                Text(
+                    text = "Teams",
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .toggleable(
+                                value = includeTeam1,
+                                role = Role.Checkbox,
+                                onValueChange = { includeTeam1 = it }
+                            )
+                    ) {
+                        Checkbox(
+                            checked = includeTeam1,
+                            onCheckedChange = null
+                        )
+
+                        Text(
+                            text = team1.name.ifBlank { "Team ${team1.index}" },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .toggleable(
+                                value = includeTeam2,
+                                role = Role.Checkbox,
+                                onValueChange = { includeTeam2 = it }
+                            )
+                    ) {
+                        Checkbox(
+                            checked = includeTeam2,
+                            onCheckedChange = null
+                        )
+
+                        Text(
+                            text = team2.name.ifBlank { "Team ${team2.index}" },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Period",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                PdfMatchPeriod.entries.forEach { period ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = selectedPeriod == period,
+                                role = Role.RadioButton,
+                                onClick = {
+                                    selectedPeriod = period
+                                }
+                            )
+                    ) {
+                        RadioButton(
+                            selected = selectedPeriod == period,
+                            onClick = null
+                        )
+                        Text(period.label)
+                    }
+                }
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Include events", style = MaterialTheme.typography.titleMedium)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = includeScores,
+                            role = Role.Checkbox,
+                            onValueChange = {
+                                includeScores = it
+                            }
+                        )
                 ) {
                     Checkbox(
-                        checked = includeTeam1,
-                        onCheckedChange = {
-                            includeTeam1 = it
-                            exportMessage = null
-                        }
+                        checked = includeScores,
+                        onCheckedChange = null
                     )
 
-                    Text(team1.name.ifBlank { "Team ${team1.index}" })
+                    Text("Scores")
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = includeSubstitutions,
+                            role = Role.Checkbox,
+                            onValueChange = {
+                                includeSubstitutions = it
+                            }
+                        )
                 ) {
                     Checkbox(
-                        checked = includeTeam2,
-                        onCheckedChange = {
-                            includeTeam2 = it
-                            exportMessage = null
-                        }
+                        checked = includeSubstitutions,
+                        onCheckedChange = null
                     )
 
-                    Text(team2.name.ifBlank { "Team ${team2.index}" })
+                    Text("Substitutions")
                 }
-            }
-        }
 
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "Period",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            PdfMatchPeriod.entries.forEach { period ->
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = includeDiscipline,
+                            role = Role.Checkbox,
+                            onValueChange = {
+                                includeDiscipline = it
+                            }
+                        )
                 ) {
-                    RadioButton(
-                        selected = selectedPeriod == period,
-                        onClick = {
-                            selectedPeriod = period
-                            exportMessage = null
-                        }
+                    Checkbox(
+                        checked = includeDiscipline,
+                        onCheckedChange = null
                     )
-                    Text(period.label)
+
+                    Text("Discipline")
                 }
             }
         }
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Include events", style = MaterialTheme.typography.titleMedium)
-
-            Row(verticalAlignment = Alignment.CenterVertically)
-            {
-                Checkbox(
-                    checked = includeScores,
-                    onCheckedChange = {
-                        includeScores = it
-                        exportMessage = null
-                    }
-                )
-
-                Text("Scores")
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically)
-            {
-                Checkbox(
-                    checked = includeSubstitutions,
-                    onCheckedChange = {
-                        includeSubstitutions = it
-                        exportMessage = null
-                    }
-                )
-
-                Text("Substitutions")
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically)
-            {
-                Checkbox(
-                    checked = includeDiscipline,
-                    onCheckedChange = {
-                        includeDiscipline = it
-                        exportMessage = null
-                    }
-                )
-
-                Text("Discipline")
-            }
-        }
-
-        Button(
-            enabled = includedTeamIds.isNotEmpty() && exportOptions.hasSelectedEventTypes,
-            onClick = {
-                exportMessage = null
-                pendingExport = PendingPdfExport(
-                    matchState = vm.matchState,
-                    teamIds = includedTeamIds,
-                    options = exportOptions
-                )
-
-                createPdfLauncher.launch(
-                    buildPdfFileName(
-                        selectedTeamIds = includedTeamIds,
-                        team1 = team1,
-                        team2 = team2,
-                        period = selectedPeriod
-                    )
-                )
-            },
-            shape = AppButtonShape
-        ) {
-            Text("Export PDF")
-        }
-
-        exportMessage?.let { Text(it) }
     }
 }
 
@@ -641,22 +704,65 @@ private fun buildPdfFileName(selectedTeamIds: Set<TeamId>, team1: Team,
 }
 
 @Composable
-private fun SummaryFilters(
+private fun SummaryHeader(currentTab: SummaryTab, onTabSelected: (SummaryTab) -> Unit,
+                          content: @Composable RowScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(SummaryScreenHeaderHeight),
+        shape = AppCardShape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column {
+            PrimaryTabRow(selectedTabIndex = currentTab.ordinal) {
+                SummaryTab.entries.forEachIndexed { index, tab ->
+                    Tab(
+                        selected = currentTab.ordinal == index,
+                        onClick = { onTabSelected(tab) },
+                        text = {
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryEventHeader(
+    currentTab: SummaryTab,
+    onTabSelected: (SummaryTab) -> Unit,
     team: Team,
     halfIndex: Int,
     onSwitchTeam: () -> Unit,
     onSwitchHalf: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    SummaryHeader(
+        currentTab = currentTab,
+        onTabSelected = onTabSelected
     ) {
         OutlinedButton(
             onClick = onSwitchTeam,
             modifier = Modifier.weight(1f),
-            shape = AppButtonShape
+            shape = AppButtonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         ) {
-            Text(text = team.name.ifBlank { "Team ${team.index}" },
+            Text(
+                text = team.name.ifBlank { "Team ${team.index}" },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -665,11 +771,36 @@ private fun SummaryFilters(
         OutlinedButton(
             onClick = onSwitchHalf,
             modifier = Modifier.weight(1f),
-            shape = AppButtonShape
+            shape = AppButtonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         ) {
-            Text(text = if (halfIndex == 1) { "First Half" } else { "Second Half" },
+            Text(
+                text = if (halfIndex == 1) "First Half" else "Second Half",
                 maxLines = 1
             )
+        }
+    }
+}
+
+@Composable
+private fun SummaryExportHeader(
+    currentTab: SummaryTab,
+    onTabSelected: (SummaryTab) -> Unit,
+    enabled: Boolean,
+    onExport: () -> Unit) {
+    SummaryHeader(
+        currentTab = currentTab,
+        onTabSelected = onTabSelected
+    ) {
+        Button(
+            onClick = onExport,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth(),
+            shape = AppButtonShape
+        ) {
+            Text("Export PDF")
         }
     }
 }
@@ -694,5 +825,8 @@ private fun playerLabel(team: Team, playerId: PlayerId?): String {
 @Preview(showBackground = true)
 @Composable
 private fun SummaryScreenPreview() {
-    SummaryScreen(vm = MatchViewModel())
+    SummaryScreen(
+        vm = MatchViewModel(),
+        onShowMessage = {}
+    )
 }

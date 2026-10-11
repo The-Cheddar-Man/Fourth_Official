@@ -49,7 +49,7 @@ import com.example.fourthofficial.ui.common.TeamPanel
 import com.example.fourthofficial.ui.match.components.StartNewMatchDialogue
 import com.example.fourthofficial.ui.theme.AppButtonShape
 import com.example.fourthofficial.ui.theme.AppCardShape
-import com.example.fourthofficial.ui.theme.MainScreenHeaderHeight
+import com.example.fourthofficial.ui.theme.SetupScreenHeaderHeight
 import com.example.fourthofficial.ui.viewmodel.MatchViewModel
 
 @Composable
@@ -63,7 +63,7 @@ fun MatchSetupScreen(modifier: Modifier = Modifier, vm: MatchViewModel,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().height(MainScreenHeaderHeight),
+            modifier = Modifier.fillMaxWidth().height(SetupScreenHeaderHeight),
             shape = AppCardShape,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
