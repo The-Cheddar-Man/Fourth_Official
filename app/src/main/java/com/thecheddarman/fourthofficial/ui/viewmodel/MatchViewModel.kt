@@ -432,7 +432,7 @@ class MatchViewModel : ViewModel() {
         return EventEditResult.Failure("Prepared substitutions could not be found.")
 
         val preparedSubstitution = batch.substitutions.find { it.playerOffId == playerOffId } ?:
-            return EventEditResult.Failure("Prepared substitution could not be found.")
+        return EventEditResult.Failure("Prepared substitution could not be found.")
 
         val playerOnId = preparedSubstitution.playerOnId ?:
         return EventEditResult.Failure("Choose a replacement player first.")
@@ -485,16 +485,16 @@ class MatchViewModel : ViewModel() {
         if (playerOffId == playerOnId) return
 
         val preparedSubstitution = batch.substitutions.find {
-                it.playerOffId == playerOffId
-            } ?: return
+            it.playerOffId == playerOffId
+        } ?: return
 
         val playerOnState = getPlayerState(
-                teamId,
-                playerOnId
-            ) ?: return
+            teamId,
+            playerOnId
+        ) ?: return
 
         val alreadyUsed = batch.substitutions.any { it.playerOnId == playerOnId &&
-            it.playerOffId != preparedSubstitution.playerOffId
+                it.playerOffId != preparedSubstitution.playerOffId
         }
 
         val canReturn = canReturn(events = subEvents, teamId = teamId, playerId = playerOnId)
@@ -508,13 +508,13 @@ class MatchViewModel : ViewModel() {
         ) return
 
         val updatedSubstitutions = batch.substitutions.map { substitution ->
-                if (substitution.playerOffId == playerOffId) {
-                    substitution.copy(playerOnId = playerOnId)
-                }
-                else {
-                    substitution
-                }
+            if (substitution.playerOffId == playerOffId) {
+                substitution.copy(playerOnId = playerOnId)
             }
+            else {
+                substitution
+            }
+        }
 
         val updatedBatch = batch.copy(substitutions = updatedSubstitutions)
 
@@ -568,48 +568,48 @@ class MatchViewModel : ViewModel() {
 
         val reconciledBatches = matchState.preparedSubstitutionBatches.mapNotNull { (teamId, batch) ->
             val teamStates = when (teamId) {
-                    team1.id -> team1PlayerStates
-                    team2.id -> team2PlayerStates
-                    else -> return@mapNotNull null
-                }
+                team1.id -> team1PlayerStates
+                team2.id -> team2PlayerStates
+                else -> return@mapNotNull null
+            }
 
             val validOutgoingSubstitutions = batch.substitutions.filter { substitution ->
-                    val playerOffState = teamStates[substitution.playerOffId] ?: return@filter false
-                    canSubstituteOff(
-                        state = playerOffState,
-                        totalElapsedMs = clock.totalElapsedMs
-                    )
-                }
+                val playerOffState = teamStates[substitution.playerOffId] ?: return@filter false
+                canSubstituteOff(
+                    state = playerOffState,
+                    totalElapsedMs = clock.totalElapsedMs
+                )
+            }
 
             val usedPlayerOnIds = mutableSetOf<PlayerId>()
             val reconciledSubstitutions = validOutgoingSubstitutions.map { substitution ->
-                    val playerOnId = substitution.playerOnId ?: return@map substitution
-                    if (playerOnId == substitution.playerOffId) {
-                        return@map substitution.copy(playerOnId = null)
-                    }
-
-                    val playerOnState = teamStates[playerOnId] ?: return@map substitution.copy(playerOnId = null)
-
-                    val playerCanReturn = canReturn(
-                        events = subEvents,
-                        teamId = teamId,
-                        playerId = playerOnId
-                    )
-
-                    val incomingIsValid = canSubstituteOn(
-                        state = playerOnState,
-                        totalElapsedMs = clock.totalElapsedMs,
-                        alreadyUsed = playerOnId in usedPlayerOnIds,
-                        canReturn = playerCanReturn
-                    )
-
-                    if (incomingIsValid) {
-                        usedPlayerOnIds += playerOnId
-                        substitution
-                    } else {
-                        substitution.copy(playerOnId = null)
-                    }
+                val playerOnId = substitution.playerOnId ?: return@map substitution
+                if (playerOnId == substitution.playerOffId) {
+                    return@map substitution.copy(playerOnId = null)
                 }
+
+                val playerOnState = teamStates[playerOnId] ?: return@map substitution.copy(playerOnId = null)
+
+                val playerCanReturn = canReturn(
+                    events = subEvents,
+                    teamId = teamId,
+                    playerId = playerOnId
+                )
+
+                val incomingIsValid = canSubstituteOn(
+                    state = playerOnState,
+                    totalElapsedMs = clock.totalElapsedMs,
+                    alreadyUsed = playerOnId in usedPlayerOnIds,
+                    canReturn = playerCanReturn
+                )
+
+                if (incomingIsValid) {
+                    usedPlayerOnIds += playerOnId
+                    substitution
+                } else {
+                    substitution.copy(playerOnId = null)
+                }
+            }
 
             if (reconciledSubstitutions.isEmpty()) {
                 null
@@ -637,7 +637,7 @@ class MatchViewModel : ViewModel() {
                            type: SubstitutionType, period: MatchPhase, timeMs: Long): EventEditResult
     {
         val existingSubstitution = subEvents.find { event -> event.id == eventId } ?:
-            return EventEditResult.Failure("Substitution event could not be found.")
+        return EventEditResult.Failure("Substitution event could not be found.")
 
         val team = when (existingSubstitution.teamId) {
             team1.id -> team1
@@ -707,21 +707,21 @@ class MatchViewModel : ViewModel() {
         }
 
         val updatedSubstitution = existingSubstitution.copy(
-                playerOffId = playerOffId,
-                playerOnId = playerOnId,
-                type = type,
-                halfIndex = updatedHalfIndex,
-                timeMs = updatedTimeMs,
-                occurredAtHalfTime = occurredAtHalfTime
-            )
+            playerOffId = playerOffId,
+            playerOnId = playerOnId,
+            type = type,
+            halfIndex = updatedHalfIndex,
+            timeMs = updatedTimeMs,
+            occurredAtHalfTime = occurredAtHalfTime
+        )
 
         val candidateEvents = matchState.events.map { event ->
-                if (event.id == eventId) {
-                    updatedSubstitution
-                } else {
-                    event
-                }
+            if (event.id == eventId) {
+                updatedSubstitution
+            } else {
+                event
             }
+        }
 
         return commitEventEdit(candidateEvents)
     }
